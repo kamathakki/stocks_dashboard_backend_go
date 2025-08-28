@@ -14,7 +14,6 @@ func responseWrapper[T any](handler func(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			helper.WriteJson(w, http.StatusInternalServerError, nil, err)
 		} else {
-
 			helper.WriteJson(w, http.StatusOK, result, nil)
 		}
 	}
