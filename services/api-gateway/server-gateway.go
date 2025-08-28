@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/helper"
+	"stock_automation_backend_go/services/iam"
+	"stock_automation_backend_go/services/stockkeepingunit"
+	"stock_automation_backend_go/services/warehouse"
 	"stock_automation_backend_go/shared/env"
-	"stock_automation_backend_go/shared/routes"
 )
 
 type ResponseStruct struct {
@@ -27,7 +29,10 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
-	routes.RegisterRoutes(mux)
+	// routes.RegisterRoutes(mux)
+	iam.RegisterRoutes(mux)
+	warehouse.RegisterRoutes(mux)
+	stockkeepingunit.RegisterRoutes(mux)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.BACKEND_PORT)),

@@ -3,8 +3,8 @@ package helper
 import (
 	"encoding/json"
 	"net/http"
+	models "stock_automation_backend_go/services/api-gateway/api-routes/types"
 	"stock_automation_backend_go/shared/env"
-	models "stock_automation_backend_go/shared/routes/types/models"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
