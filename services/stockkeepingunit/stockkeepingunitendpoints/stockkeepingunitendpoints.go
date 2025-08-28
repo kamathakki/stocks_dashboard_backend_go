@@ -1,9 +1,9 @@
-package stockkeepingunit
+package stockkeepingunitendpoints
 
 import (
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/services/stockkeepingunit/types/models"
+	"stockkeepingunit/types/models"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -14,7 +14,7 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.Stoc
 	ctx := r.Context()
 
 	dbResponse, err := DB.QueryContext(ctx, `SELECT id, name, sku_code, excel_names, model_no, weight, carton_weight, fitting_in_carton
-                    FROM stock_keeping_units WHERE is_deleted = false ORDER BY id`)
+                    FROM stockkeepingunit.stock_keeping_units WHERE is_deleted = false ORDER BY id`)
 
 	if err != nil {
 		return nil, err

@@ -1,11 +1,11 @@
-package warehouse
+package warehouseendpoints
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/services/warehouse/types/models"
+	"warehouse/types/models"
 
 	_ "github.com/lib/pq"
 )
@@ -17,7 +17,7 @@ func GetWarehouseLocations(w http.ResponseWriter, r *http.Request) ([]models.War
 	var warehouseLocationRows []models.WarehouseLocationModel
 
 	dbResponse, err := DB.QueryContext(ctx,
-		`SELECT id, name, location_id, skus_count from public.warehouse_locations ORDER BY id`)
+		`SELECT id, name, location_id, skus_count from warehouse.warehouse_locations ORDER BY id`)
 	if err != nil {
 		fmt.Println("Error in Querying warehouse_locations")
 	}

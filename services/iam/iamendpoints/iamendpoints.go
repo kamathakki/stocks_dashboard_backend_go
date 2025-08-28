@@ -1,12 +1,12 @@
-package iam
+package iamendpoints
 
 import (
 	"encoding/json"
 	"fmt"
+	"iam/types/models"
 	"net/http"
 	"stock_automation_backend_go/database"
 	"stock_automation_backend_go/helper"
-	"stock_automation_backend_go/services/iam/types/models"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error) {
@@ -33,10 +33,10 @@ func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error)
 	   json_agg(
 	     DISTINCT p.code 
 	   ), '[]'::json) AS permissionCodes
-	   FROM users u
-	   LEFT JOIN roles r on u.role_id = r.id  
-	   LEFT JOIN role_permissions rp on r.id = rp.role_id
-	   LEFT JOIN permissions p on rp.permission_id = p.id
+	   FROM iam.users u
+	   LEFT JOIN iam.roles r on u.role_id = r.id  
+	   LEFT JOIN iam.role_permissions rp on r.id = rp.role_id
+	   LEFT JOIN iam.permissions p on rp.permission_id = p.id
 	   WHERE u.user_name = $1 or u.email = $2
 	   GROUP BY
        u.id, u.first_name, u.last_name, u.user_name, u.email, u.mobile_no,
@@ -51,7 +51,7 @@ func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error)
 		&loginResponse.LastName, &loginResponse.UserName, &loginResponse.Password, &loginResponse.Email,
 		&loginResponse.MobileNo, &permissionsJSON,
 		&loginResponse.RoleName, &loginResponse.RoleCode, &codesJSON); err != nil {
-		return models.LoginResponse{}, err
+		return models.LoginResponse{}, fmt.Errorf("no user found")
 	}
 
 	if err := json.Unmarshal(permissionsJSON, &loginResponse.Permissions); err != nil {
