@@ -3,14 +3,13 @@ package stockkeepingunit
 import (
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/helper"
 	"stock_automation_backend_go/services/stockkeepingunit/types/models"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
-func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) {
+func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.StockKeepingUnit, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
 
@@ -18,8 +17,7 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) {
                     FROM stock_keeping_units WHERE is_deleted = false ORDER BY id`)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	var SKURow models.StockKeepingUnit
@@ -36,6 +34,6 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) {
 		stockKeepingUnitRows = append(stockKeepingUnitRows, SKURow)
 	}
 
-	helper.WriteJson(w, http.StatusOK, stockKeepingUnitRows)
-
+	//helper.WriteJson(w, http.StatusOK, stockKeepingUnitRows)
+	return stockKeepingUnitRows, nil
 }

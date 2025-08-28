@@ -5,19 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/helper"
 	"stock_automation_backend_go/services/warehouse/types/models"
 
 	_ "github.com/lib/pq"
 )
 
-func GetWarehouseLocations(w http.ResponseWriter, r *http.Request) {
+func GetWarehouseLocations(w http.ResponseWriter, r *http.Request) ([]models.WarehouseLocationModel, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
-
-	if err := DB.PingContext(ctx); err != nil {
-		panic(err)
-	}
 
 	var warehouseLocationRows []models.WarehouseLocationModel
 
@@ -34,13 +29,11 @@ func GetWarehouseLocations(w http.ResponseWriter, r *http.Request) {
 		var sc models.Sku
 
 		if err := dbResponse.Scan(&wl.ID, &wl.Name, &wl.LocationId, &rawSkusCount); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 
 		if err := json.Unmarshal(rawSkusCount, &sc); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 
 		wl.SkusCount = sc
@@ -48,6 +41,5 @@ func GetWarehouseLocations(w http.ResponseWriter, r *http.Request) {
 		warehouseLocationRows = append(warehouseLocationRows, wl)
 	}
 
-	helper.WriteJson(w, http.StatusOK, warehouseLocationRows)
-
+	return warehouseLocationRows, nil
 }

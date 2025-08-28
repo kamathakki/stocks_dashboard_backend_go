@@ -9,7 +9,7 @@ import (
 	"stock_automation_backend_go/services/iam/types/models"
 )
 
-func Login(w http.ResponseWriter, r *http.Request) {
+func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error) {
 	var userLoginBody models.LoginBody
 	json.NewDecoder(r.Body).Decode(&userLoginBody)
 
@@ -51,22 +51,18 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		&loginResponse.LastName, &loginResponse.UserName, &loginResponse.Password, &loginResponse.Email,
 		&loginResponse.MobileNo, &permissionsJSON,
 		&loginResponse.RoleName, &loginResponse.RoleCode, &codesJSON); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return models.LoginResponse{}, err
 	}
 
 	if err := json.Unmarshal(permissionsJSON, &loginResponse.Permissions); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return models.LoginResponse{}, err
 	}
 	if err := json.Unmarshal(codesJSON, &loginResponse.PermissionCodes); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return models.LoginResponse{}, err
 	}
 
 	if err := helper.ComparePassword([]byte(userLoginBody.Password), []byte(loginResponse.Password)); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return models.LoginResponse{}, err
 	}
 	displayName := fmt.Sprintf("%v %v", loginResponse.FirstName, loginResponse.LastName)
 
@@ -81,10 +77,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}, "A")
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return models.LoginResponse{}, err
 	}
 
-	helper.WriteJson(w, http.StatusOK, models.LoginResponse{User: loginResponse, Token: accessToken, IsLoggedIn: true})
+	return models.LoginResponse{User: loginResponse, Token: accessToken, IsLoggedIn: true}, nil
 
 }
