@@ -20,7 +20,7 @@ func slash(w http.ResponseWriter, r *http.Request) {
 
 func health(w http.ResponseWriter, r *http.Request) {
 	res := ResponseStruct{StatusCode: http.StatusOK, Message: "OK"}
-	helper.WriteJson(w, http.StatusOK, res)
+	helper.WriteJson(w, http.StatusOK, res, nil)
 }
 
 func main() {

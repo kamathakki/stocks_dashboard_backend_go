@@ -4,17 +4,29 @@ import (
 	"encoding/json"
 	"net/http"
 	"stock_automation_backend_go/shared/env"
+	models "stock_automation_backend_go/shared/routes/types/models"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func WriteJson(w http.ResponseWriter, statusCode int, data any) {
+func WriteJson(w http.ResponseWriter, statusCode int, result any, outererr error) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 
-	jsonData, err := json.Marshal(data)
+	var response models.APIResponseStruct
+	var errString *string
+
+	if outererr != nil {
+		msg := outererr.Error()
+		errString = &msg
+		response = models.APIResponseStruct{StatusCode: statusCode, Response: nil, Error: errString}
+	} else {
+		response = models.APIResponseStruct{StatusCode: statusCode, Response: result, Error: errString}
+	}
+
+	jsonData, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}

@@ -6,25 +6,17 @@ import (
 	"stock_automation_backend_go/services/iam"
 	"stock_automation_backend_go/services/stockkeepingunit"
 	"stock_automation_backend_go/services/warehouse"
-	"stock_automation_backend_go/shared/routes/types/models"
 )
 
 func responseWrapper[T any](handler func(w http.ResponseWriter, r *http.Request) (T, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		result, err := handler(w, r)
 		if err != nil {
-			helper.WriteJson(w, http.StatusInternalServerError, models.APIResponseStruct{
-				StatusCode: http.StatusInternalServerError,
-				Response:   nil,
-				Error:      err,
-			})
-		}
+			helper.WriteJson(w, http.StatusInternalServerError, nil, err)
+		} else {
 
-		helper.WriteJson(w, http.StatusOK, models.APIResponseStruct{
-			StatusCode: http.StatusOK,
-			Response:   result,
-			Error:      nil,
-		})
+			helper.WriteJson(w, http.StatusOK, result, nil)
+		}
 	}
 }
 
