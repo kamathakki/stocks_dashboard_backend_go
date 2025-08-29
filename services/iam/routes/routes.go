@@ -1,10 +1,10 @@
-package main
+package routes
 
 import (
-	"fmt"
+	"iam/iamendpoints"
 	"net/http"
 	"stock_automation_backend_go/helper"
-	"stock_automation_backend_go/shared/env"
+	common "stock_automation_backend_go/shared"
 )
 
 type ResponseStruct struct {
@@ -14,7 +14,7 @@ type ResponseStruct struct {
 
 func slash(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Welcome to Stock Automation Backend in GOLang"))
+	w.Write([]byte("IAM service up"))
 }
 
 func health(w http.ResponseWriter, r *http.Request) {
@@ -22,19 +22,11 @@ func health(w http.ResponseWriter, r *http.Request) {
 	helper.WriteJson(w, http.StatusOK, res, nil)
 }
 
-func main() {
-	mux := http.NewServeMux()
+func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
 
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.BACKEND_PORT)),
-		Handler: mux,
-	}
-
-	fmt.Printf("API Gateway is running on port %v. \n", env.GetEnv(env.EnvKeys.BACKEND_PORT))
-
-	if err := server.ListenAndServe(); err != nil {
-		fmt.Printf("HTTP server error %v", err)
-	}
+	// mux.HandleFunc("/api/warehouse/getWarehouseLocations", responseWrapper(warehouse.GetWarehouseLocations))
+	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
+	mux.HandleFunc("/api/iam/login", common.ResponseWrapper(iamendpoints.Login))
 }

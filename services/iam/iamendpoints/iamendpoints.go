@@ -1,12 +1,12 @@
-package iam
+package iamendpoints
 
 import (
 	"encoding/json"
 	"fmt"
+	"iam/types/models"
 	"net/http"
 	"stock_automation_backend_go/database"
 	"stock_automation_backend_go/helper"
-	"stock_automation_backend_go/services/iam/types/models"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error) {

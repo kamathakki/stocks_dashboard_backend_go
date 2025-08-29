@@ -1,4 +1,4 @@
-package warehouse
+package warehouseendpoints
 
 import (
 	"encoding/json"

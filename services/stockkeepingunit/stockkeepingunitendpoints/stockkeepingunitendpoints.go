@@ -1,4 +1,4 @@
-package stockkeepingunit
+package stockkeepingunitendpoints
 
 import (
 	"net/http"
