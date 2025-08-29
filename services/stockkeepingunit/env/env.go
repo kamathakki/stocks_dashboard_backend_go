@@ -23,7 +23,7 @@ var EnvKeys = struct {
 	REFRESH_SECRET_KEY: "REFRESH_SECRET_KEY", SKU_PORT: "SKU_PORT"}
 
 func init() {
-	err := godotenv.Load(".env.development")
+	err := godotenv.Load("./env/stockkeepingunit/.env.development")
 
 	if err != nil {
 		log.Fatalf("Error loading .env file")

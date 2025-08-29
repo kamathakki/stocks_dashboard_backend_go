@@ -3,8 +3,12 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"stock_automation_backend_go/helper"
 	"stock_automation_backend_go/shared/env"
+	"strings"
+	"time"
 )
 
 type ResponseStruct struct {
@@ -22,10 +26,48 @@ func health(w http.ResponseWriter, r *http.Request) {
 	helper.WriteJson(w, http.StatusOK, res, nil)
 }
 
+func newProxy(base string, stripPrefix string) http.Handler {
+	target, _ := url.Parse(base)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	proxy.Transport = &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		ResponseHeaderTimeout: 15 * time.Second,
+		IdleConnTimeout:       60 * time.Second,
+	}
+
+	originalDirector := proxy.Director
+
+	proxy.Director = func(r *http.Request) {
+		originalDirector(r)
+
+		r.Host = target.Host
+		r.URL.Scheme = target.Scheme
+		r.URL.Host = target.Host
+
+		if stripPrefix != "" && strings.HasPrefix(r.URL.Path, stripPrefix) {
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, stripPrefix)
+			if r.URL.Path == "" {
+				r.URL.Path = "/"
+			}
+		}
+	}
+
+	return proxy
+}
+
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
+
+	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.IAM_PORT))
+	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.SKU_PORT))
+	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT))
+
+	mux.Handle("/api/iam/", newProxy(iam, "/api/iam"))
+	mux.Handle("/api/stockkeepingunit/", newProxy(sku, "/api/stockkeepingunit"))
+	mux.Handle("/api/warehouse/", newProxy(wh, "/api/warehouse"))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.BACKEND_PORT)),

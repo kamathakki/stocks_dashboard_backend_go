@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"stock_automation_backend_go/services/warehouse/routes"
-	"stock_automation_backend_go/shared/env"
+	"warehouse/env"
+	"warehouse/routes"
 )
 
 func main() {

@@ -3,8 +3,8 @@ package routes
 import (
 	"net/http"
 	"stock_automation_backend_go/helper"
-	"stock_automation_backend_go/services/stockkeepingunit/stockkeepingunitendpoints"
 	common "stock_automation_backend_go/shared"
+	"stockkeepingunit/stockkeepingunitendpoints"
 )
 
 type ResponseStruct struct {
@@ -28,5 +28,5 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 	// mux.HandleFunc("/api/warehouse/getWarehouseLocations", responseWrapper(warehouse.GetWarehouseLocations))
 	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
-	mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", common.ResponseWrapper(stockkeepingunitendpoints.GetStockKeepingUnits))
+	mux.HandleFunc("/getStockKeepingUnits", common.ResponseWrapper(stockkeepingunitendpoints.GetStockKeepingUnits))
 }

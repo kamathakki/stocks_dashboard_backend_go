@@ -28,5 +28,5 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 	// mux.HandleFunc("/api/warehouse/getWarehouseLocations", responseWrapper(warehouse.GetWarehouseLocations))
 	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
-	mux.HandleFunc("/api/iam/login", common.ResponseWrapper(iamendpoints.Login))
+	mux.HandleFunc("/login", common.ResponseWrapper(iamendpoints.Login))
 }

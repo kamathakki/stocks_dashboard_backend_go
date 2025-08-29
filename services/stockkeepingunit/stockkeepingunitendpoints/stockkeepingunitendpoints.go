@@ -3,7 +3,7 @@ package stockkeepingunitendpoints
 import (
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/services/stockkeepingunit/types/models"
+	"stockkeepingunit/types/models"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"

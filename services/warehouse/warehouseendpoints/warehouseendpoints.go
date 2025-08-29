@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/database"
-	"stock_automation_backend_go/services/warehouse/types/models"
+	"warehouse/types/models"
 
 	_ "github.com/lib/pq"
 )
