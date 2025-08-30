@@ -15,3 +15,28 @@ func ResponseWrapper[T any](handler func(w http.ResponseWriter, r *http.Request)
 		}
 	}
 }
+
+func APIWrapper[T any](handler func(w http.ResponseWriter, r *http.Request) (T, error)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		//return handler(w, r)
+		result, err := handler(w, r)
+		if err != nil {
+			helper.WriteMicroServiceJson(w, http.StatusInternalServerError, nil, err)
+		} else {
+			helper.WriteMicroServiceJson(w, http.StatusOK, result, nil)
+		}
+
+	}
+}
+
+func RequireInternal(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fromgateway := r.Header.Get("fromgateway")
+
+		if fromgateway != "y" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

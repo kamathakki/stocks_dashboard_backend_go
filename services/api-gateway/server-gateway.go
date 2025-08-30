@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -26,6 +29,59 @@ func health(w http.ResponseWriter, r *http.Request) {
 	helper.WriteJson(w, http.StatusOK, res, nil)
 }
 
+type captureResponseWriter struct {
+	http.ResponseWriter
+	buf    *bytes.Buffer
+	status int
+}
+
+func (rw *captureResponseWriter) WriteHeader(code int) {
+	rw.status = code
+	//rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *captureResponseWriter) Write(data []byte) (int, error) {
+	return rw.buf.Write(data)
+}
+
+// func ResponseWrapperProxy(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+// 		rw := &captureResponseWriter{ResponseWriter: w, buf: &bytes.Buffer{}}
+// 		next.ServeHTTP(rw, r)
+
+// 		if rw.status >= 400 {
+// 			fmt.Printf("Captured body: %q\n", rw.buf.String())
+// 			helper.WriteJson(w, rw.status, nil, errors.New(rw.buf.String()))
+// 			return
+// 		}
+
+// 		helper.WriteJson(w, rw.status, json.RawMessage(rw.buf.Bytes()), nil)
+// 	})
+// }
+
+func ResponseWrapperProxy(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rw := &captureResponseWriter{ResponseWriter: w, buf: &bytes.Buffer{}}
+		next.ServeHTTP(rw, r)
+
+		if rw.status >= 400 {
+			fmt.Printf("Captured body: %q\n", rw.buf.String())
+			helper.WriteJson(w, rw.status, nil, errors.New(rw.buf.String()))
+			return
+		}
+
+		// Try to decode JSON so we don’t double-wrap
+		var payload any
+		if err := json.Unmarshal(rw.buf.Bytes(), &payload); err != nil {
+			// fallback if body isn't valid JSON
+			payload = rw.buf.String()
+		}
+
+		helper.WriteJson(w, rw.status, payload, nil)
+	})
+}
+
 func newProxy(base string, stripPrefix string) http.Handler {
 	target, _ := url.Parse(base)
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -44,6 +100,7 @@ func newProxy(base string, stripPrefix string) http.Handler {
 		r.Host = target.Host
 		r.URL.Scheme = target.Scheme
 		r.URL.Host = target.Host
+		r.Header.Add("fromgateway", "y")
 
 		if stripPrefix != "" && strings.HasPrefix(r.URL.Path, stripPrefix) {
 			r.URL.Path = strings.TrimPrefix(r.URL.Path, stripPrefix)
@@ -65,9 +122,9 @@ func main() {
 	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.SKU_PORT))
 	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT))
 
-	mux.Handle("/api/iam/", newProxy(iam, "/api/iam"))
-	mux.Handle("/api/stockkeepingunit/", newProxy(sku, "/api/stockkeepingunit"))
-	mux.Handle("/api/warehouse/", newProxy(wh, "/api/warehouse"))
+	mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
+	mux.Handle("/api/stockkeepingunit/", ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit")))
+	mux.Handle("/api/warehouse/", ResponseWrapperProxy(newProxy(wh, "/api/warehouse")))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.BACKEND_PORT)),

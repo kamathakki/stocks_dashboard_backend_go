@@ -22,11 +22,14 @@ func health(w http.ResponseWriter, r *http.Request) {
 	helper.WriteJson(w, http.StatusOK, res, nil)
 }
 
-func RegisterRoutes(mux *http.ServeMux) {
+func RegisterRoutes(mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
 
+	restrictedmux := common.RequireInternal(mux)
 	// mux.HandleFunc("/api/warehouse/getWarehouseLocations", responseWrapper(warehouse.GetWarehouseLocations))
 	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
-	mux.HandleFunc("/login", common.ResponseWrapper(iamendpoints.Login))
+	mux.HandleFunc("/login", common.APIWrapper(iamendpoints.Login))
+
+	return restrictedmux
 }

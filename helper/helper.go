@@ -2,6 +2,7 @@ package helper
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	models "stock_automation_backend_go/services/api-gateway/api-routes/types"
 	"stock_automation_backend_go/shared/env"
@@ -12,8 +13,6 @@ import (
 )
 
 func WriteJson(w http.ResponseWriter, statusCode int, result any, outererr error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
 
 	var response models.APIResponseStruct
 	var errString *string
@@ -29,8 +28,45 @@ func WriteJson(w http.ResponseWriter, statusCode int, result any, outererr error
 	jsonData, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Reached here")
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(statusCode)
+
+	_, _ = w.Write(jsonData)
+}
+
+func WriteMicroServiceJson(w http.ResponseWriter, statusCode int, result any, outererr error) {
+
+	var response any
+	//var errString *string
+
+	if outererr != nil {
+		// msg := outererr.Error()
+		// errString = &msg
+		// w.Header().Set("Content-Type", "application/text")
+		// w.WriteHeader(statusCode)
+		// w.Write([]byte(fmt.Sprintf("error %v", outererr.Error())))
+		w.Header().Set("Content-Type", "application/text")
+		w.WriteHeader(statusCode)
+
+		w.Write([]byte(outererr.Error()))
+
+		return
+	} else {
+		response = result
 	}
 
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	//return jsonData
 	w.Write(jsonData)
 }
 
