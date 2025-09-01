@@ -29,6 +29,15 @@ func RegisterRoutes(mux *http.ServeMux) http.Handler {
 	restrictedmux := common.RequireInternal(mux)
 
 	mux.HandleFunc("/getWarehouseLocations", common.APIWrapper(warehouseendpoints.GetWarehouseLocations))
-	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
+	mux.HandleFunc("/getColumnMappings/", common.APIWrapper(warehouseendpoints.GetColumnMappings))
+	mux.HandleFunc("/getWarehouseLocationsStructure", common.APIWrapper(warehouseendpoints.GetWarehouseLocationsStructure))
+	mux.HandleFunc("/getCountries", common.APIWrapper(warehouseendpoints.GetCountries))
+	mux.HandleFunc("/getStockCountFromHistory/", common.APIWrapper(warehouseendpoints.GetStockCountFromHistory))
+	mux.HandleFunc("/addStockCountHistoryForCountry/", common.APIWrapper(warehouseendpoints.AddStockCountHistoryForCountry))
+	mux.HandleFunc("/getStockCountByWarehouseCountries", common.APIWrapper(warehouseendpoints.GetStockCountByWarehouseCountries))
+	mux.HandleFunc("/updateWarehouseColumnMapping", common.APIWrapper(warehouseendpoints.UpdateWarehouseColumnMapping))
+	mux.HandleFunc("/deleteWarehouseColumnMapping/", common.APIWrapper(warehouseendpoints.DeleteWarehouseColumnMapping))
+	mux.HandleFunc("/getStockCountData/", common.APIWrapper(warehouseendpoints.GetStockCountData))
+	mux.HandleFunc("/updateStockCountForWarehouseLocation/", common.APIWrapper(warehouseendpoints.UpdateStockCountForWarehouseLocation))
 	return restrictedmux
 }

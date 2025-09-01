@@ -18,8 +18,13 @@ var EnvKeys = struct {
 	IAM_PORT           string
 	SKU_PORT           string
 	WAREHOUSE_PORT     string
+	REDIS_USER         string
+	REDIS_PASSWORD     string
+	REDIS_HOST         string
+	REDIS_PORT         string
 }{PG_USER: "PG_USER", PG_PASS: "PG_PASS", DB_NAME: "DB_NAME", BACKEND_PORT: "BACKEND_PORT", SECRET_KEY: "SECRET_KEY",
-	REFRESH_SECRET_KEY: "REFRESH_SECRET_KEY", IAM_PORT: "IAM_PORT", SKU_PORT: "SKU_PORT", WAREHOUSE_PORT: "WAREHOUSE_PORT"}
+	REFRESH_SECRET_KEY: "REFRESH_SECRET_KEY", IAM_PORT: "IAM_PORT", SKU_PORT: "SKU_PORT", WAREHOUSE_PORT: "WAREHOUSE_PORT",
+	REDIS_USER: "REDIS_USER", REDIS_PASSWORD: "REDIS_PASSWORD", REDIS_HOST: "REDIS_HOST", REDIS_PORT: "REDIS_PORT"}
 
 func init() {
 	err := godotenv.Load(".env.development")
@@ -29,7 +34,7 @@ func init() {
 	}
 
 	requiredEnvs := []string{"PG_USER", "PG_PASS", "DB_NAME", "BACKEND_PORT", "SECRET_KEY", "REFRESH_SECRET_KEY",
-		"IAM_PORT", "SKU_PORT", "WAREHOUSE_PORT"}
+		"IAM_PORT", "SKU_PORT", "WAREHOUSE_PORT", "REDIS_USER", "REDIS_PASSWORD", "REDIS_HOST", "REDIS_PORT"}
 
 	for _, envVariable := range requiredEnvs {
 		envVariableValue := os.Getenv(envVariable)

@@ -30,5 +30,6 @@ func RegisterRoutes(mux *http.ServeMux) http.Handler {
 	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
 	restrictedmux := common.RequireInternal(mux)
 	mux.HandleFunc("/getStockKeepingUnits", common.APIWrapper(stockkeepingunitendpoints.GetStockKeepingUnits))
+	mux.HandleFunc("/updateStockCountInMemory", common.APIWrapper(stockkeepingunitendpoints.UpdateStockCountInMemory))
 	return restrictedmux
 }

@@ -30,6 +30,11 @@ func RegisterRoutes(mux *http.ServeMux) http.Handler {
 	// mux.HandleFunc("/api/warehouse/getWarehouseLocations", responseWrapper(warehouse.GetWarehouseLocations))
 	// mux.HandleFunc("/api/stockkeepingunit/getStockKeepingUnits", responseWrapper(stockkeepingunit.GetStockKeepingUnits))
 	mux.HandleFunc("/login", common.APIWrapper(iamendpoints.Login))
+	mux.HandleFunc("/register", common.APIWrapper(iamendpoints.Register))
+	mux.HandleFunc("/updateUser/", common.APIWrapper(iamendpoints.UpdateUser))
+	mux.HandleFunc("/getUsers", common.APIWrapper(iamendpoints.GetUsers))
+	mux.HandleFunc("/getRoles", common.APIWrapper(iamendpoints.GetRoles))
+	mux.HandleFunc("/deleteUser/", common.APIWrapper(iamendpoints.DeleteUser))
 
 	return restrictedmux
 }

@@ -96,3 +96,12 @@ func CreateToken(payload struct {
 	return token.SignedString(secret)
 
 }
+
+func FindByWhere[T any, K comparable](slice []T, selector func(T) K, want K) (*T, int) {
+	for i, v := range slice {
+		if selector(v) == want {
+			return &v, i
+		}
+	}
+	return nil, -1
+}
