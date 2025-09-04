@@ -14,6 +14,8 @@ import (
 	"warehouse/types/models"
 	"warehouse/types/responsemodels"
 
+	"stock_automation_backend_go/database/redis"
+
 	_ "github.com/lib/pq"
 )
 
@@ -62,6 +64,11 @@ func GetColumnMappings(w http.ResponseWriter, r *http.Request) ([]models.ColumnM
 	}
 	warehouseName := parts[len(parts)-1]
 
+	// Try cache first
+	if cached, err := redis.GetHash[[]models.ColumnMapping]("columnMappings", warehouseName); err == nil && cached != nil {
+		return *cached, nil
+	}
+
 	query := `SELECT sc.id AS standard_column_id,
 	       wcm.id AS warehouse_column_mapping_id,
 	       sc.standard_name AS standard_name,
@@ -85,6 +92,11 @@ func GetColumnMappings(w http.ResponseWriter, r *http.Request) ([]models.ColumnM
 			return nil, err
 		}
 		mappings = append(mappings, cm)
+	}
+
+	// Set cache
+	if b, err := json.Marshal(mappings); err == nil {
+		_ = redis.SetHash("columnMappings", warehouseName, string(b))
 	}
 
 	return mappings, nil
@@ -209,6 +221,11 @@ func GetWarehouseLocationsStructure(w http.ResponseWriter, r *http.Request) ([]m
 		result = append(result, *ws)
 	}
 
+	// cache the structure
+	if b, err := json.Marshal(result); err == nil {
+		_ = redis.SetKey("warehouseLocationsStructure", string(b))
+	}
+
 	return result, nil
 }
 
@@ -220,6 +237,11 @@ type Country struct {
 func GetCountries(w http.ResponseWriter, r *http.Request) ([]Country, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
+
+	// Try cache
+	if cached, err := redis.GetKey[[]Country]("countries"); err == nil && cached != nil {
+		return *cached, nil
+	}
 
 	rows, err := DB.QueryContext(ctx, `SELECT id, name FROM warehouse.countries ORDER BY id`)
 	if err != nil {
@@ -235,6 +257,12 @@ func GetCountries(w http.ResponseWriter, r *http.Request) ([]Country, error) {
 		}
 		countries = append(countries, c)
 	}
+
+	// Set cache
+	if b, err := json.Marshal(countries); err == nil {
+		_ = redis.SetKey("countries", string(b))
+	}
+
 	return countries, nil
 }
 
@@ -314,6 +342,18 @@ func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) (
 
 	out := []map[string]any{}
 	for _, countryID := range body.Countries {
+		countryIdStr := strconv.Itoa(countryID)
+
+		// Try cache first to mirror TS behavior
+		if cached, err := redis.GetHash[responsemodels.StockCountByWarehouseCountries]("stockcount", countryIdStr); err == nil && cached != nil {
+			out = append(out, map[string]any{
+				"countryId":   cached.CountryId,
+				"countryName": cached.CountryName,
+				"warehouses":  cached.Warehouses,
+			})
+			continue
+		}
+
 		rows, err := DB.QueryContext(ctx, `SELECT 
 			wl.id AS warehouse_location_id,
 			c.name AS country_name,
@@ -392,10 +432,29 @@ func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) (
 			warehouses[foundIdx].Sku[d.LocationName] = sku
 		}
 
+		// map into result and also set cache for this country for future calls
+		countryName := ""
+		if len(data) > 0 { countryName = data[0].CountryName }
+
+		mapped := responsemodels.StockCountByWarehouseCountries{
+			CountryId:   countryID,
+			CountryName: countryName,
+			Warehouses:  func() []responsemodels.Warehouse {
+				ws := make([]responsemodels.Warehouse, 0, len(warehouses))
+				for _, wh := range warehouses {
+					ws = append(ws, responsemodels.Warehouse{ID: wh.ID, Name: wh.Name, Locations: wh.Locations, Sku: wh.Sku})
+				}
+				return ws
+			}(),
+		}
+		if b, err := json.Marshal(mapped); err == nil {
+			_ = redis.SetHash("stockcount", countryIdStr, string(b))
+		}
+
 		out = append(out, map[string]any{
-			"countryId":   countryID,
-			"countryName": func() string { if len(data) > 0 { return data[0].CountryName } ; return "" }(),
-			"warehouses":  warehouses,
+			"countryId":   mapped.CountryId,
+			"countryName": mapped.CountryName,
+			"warehouses":  mapped.Warehouses,
 		})
 	}
 
@@ -403,32 +462,39 @@ func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) (
 }
 
 func UpdateStockCountForWarehouseLocation(w http.ResponseWriter, r *http.Request) (bool, error) {
-    DB := database.GetDB()
-    ctx := context.Background()
+	DB := database.GetDB()
+	ctx := context.Background()
 
-    // Expect path: /updateStockCountForWarehouseLocation/{warehouseId}/{warehouseLocationId}
-    parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-    if len(parts) < 3 {
-        return false, fmt.Errorf("warehouseId and warehouseLocationId required")
-    }
-    wlId := parts[len(parts)-1]
-    whId := parts[len(parts)-2]
+	// Expect path: /updateStockCountForWarehouseLocation/{warehouseId}/{warehouseLocationId}
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		return false, fmt.Errorf("warehouseId and warehouseLocationId required")
+	}
+	wlId := parts[len(parts)-1]
+	whId := parts[len(parts)-2]
 
-    var bodyParser struct {
-        StockCount json.RawMessage `json:"stockCount"`
-    }
-    if err := json.NewDecoder(r.Body).Decode(&bodyParser); err != nil {
-        return false, err
-    }
-    defer r.Body.Close()
+	var bodyParser struct {
+		StockCount json.RawMessage `json:"stockCount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&bodyParser); err != nil {
+		return false, err
+	}
+	defer r.Body.Close()
 
-    _, err := DB.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
-        SET skus_count = $1
-        WHERE warehouse_id = $2 AND id = $3`, &bodyParser , whId, wlId)
-    if err != nil {
-        return false, err
-    }
-    return true, nil
+	_, err := DB.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
+		SET skus_count = $1
+		WHERE warehouse_id = $2 AND id = $3`, &bodyParser, whId, wlId)
+	if err != nil {
+		return false, err
+	}
+
+	// Invalidate country stockcount cache entry
+	var countryId int
+	if err := DB.QueryRowContext(ctx, `SELECT country_id FROM warehouse.warehouse_locations WHERE id = $1`, wlId).Scan(&countryId); err == nil {
+		_ = redis.DeleteHash("stockcount", strconv.Itoa(countryId))
+	}
+
+	return true, nil
 }
 
 func UpdateWarehouseColumnMapping(w http.ResponseWriter, r *http.Request) (bool, error) {
@@ -450,6 +516,13 @@ func UpdateWarehouseColumnMapping(w http.ResponseWriter, r *http.Request) (bool,
 	if err != nil {
 		return false, err
 	}
+
+	// Invalidate columnMappings cache for this warehouse
+	var warehouseName string
+	if err := DB.QueryRowContext(ctx, `SELECT name FROM warehouse.warehouses WHERE id = $1`, body.WarehouseId).Scan(&warehouseName); err == nil {
+		_ = redis.DeleteHash("columnMappings", warehouseName)
+	}
+
 	return true, nil
 }
 
@@ -476,6 +549,13 @@ func DeleteWarehouseColumnMapping(w http.ResponseWriter, r *http.Request) (bool,
 	if err != nil {
 		return false, err
 	}
+
+	// Invalidate columnMappings cache for this warehouse
+	var warehouseName string
+	if err := DB.QueryRowContext(ctx, `SELECT name FROM warehouse.warehouses WHERE id = $1`, whStr).Scan(&warehouseName); err == nil {
+		_ = redis.DeleteHash("columnMappings", warehouseName)
+	}
+
 	return true, nil
 }
 
@@ -484,7 +564,7 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 	ctx := r.Context()
 
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if(len(parts) < 2) {
+	if len(parts) < 2 {
 		return responsemodels.StockCountByWarehouseCountries{}, fmt.Errorf("require countryId")
 	}
 
@@ -494,28 +574,32 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 		return responsemodels.StockCountByWarehouseCountries{}, fmt.Errorf("invalid countryId")
 	}
 
+	// Try hash cache first
+	if cached, err := redis.GetHash[responsemodels.StockCountByWarehouseCountries]("stockcount", countryIdStr); err == nil && cached != nil {
+		return *cached, nil
+	}
+
 	rows, err := DB.QueryContext(ctx, `SELECT
     wl.id,   c.name AS countryName,    w.id AS warehouseId, l.id AS locationId,   wl.name AS warehouseLocationName,
     l.name AS locationName,   w.name AS warehouseName,  wl.skus_count AS skusCount
-FROM warehouse.warehouse_locations wl
-INNER JOIN warehouse.locations l
+ FROM warehouse.warehouse_locations wl
+ INNER JOIN warehouse.locations l
     ON wl.location_id = l.id
-INNER JOIN warehouse.warehouses w
+ INNER JOIN warehouse.warehouses w
     ON wl.warehouse_id = w.id
-INNER JOIN warehouse.warehouse_countries wc
+ INNER JOIN warehouse.warehouse_countries wc
     ON wl.warehouse_id = wc.warehouse_id
    AND wl.country_id = wc.country_id
-INNER JOIN warehouse.countries c
+ INNER JOIN warehouse.countries c
     ON wl.country_id = c.id
-WHERE wc.country_id = $1
-  AND wl.is_deleted = false;`, countryId)
+ WHERE wc.country_id = $1
+   AND wl.is_deleted = false;`, countryId)
 
 	if err != nil {
 		return responsemodels.StockCountByWarehouseCountries{}, err
 	}
 
 	defer rows.Close()
-
 
 	type row struct {
 		WarehouseLocationId int
@@ -532,62 +616,67 @@ WHERE wc.country_id = $1
 	var responseRows []row
 
 	for rows.Next() {
-	  var responseRow row
-	  if err := rows.Scan(&responseRow.WarehouseLocationId, &responseRow.CountryName, &responseRow.WarehouseId,  &responseRow.LocationId, 
-		&responseRow.WarehouseLocationName, 
-		&responseRow.LocationName, &responseRow.WarehouseName,  &skusCountRaw); err != nil {
-	  	return responsemodels.StockCountByWarehouseCountries{}, err
-	  }
-	  if err := json.Unmarshal(skusCountRaw, &responseRow.SkusCount); err != nil {
-		fmt.Println("Error in Unmarshalling skusCountRaw", err)
-		continue
-	  }
-
-	  responseRows = append(responseRows, responseRow)
-   }
-
-   countryNameRow := DB.QueryRowContext(ctx, "SELECT name FROM warehouse.countries WHERE id = $1", countryId)
-
-   var countryName string
-
-   if err := countryNameRow.Scan(&countryName); err != nil {
-	return responsemodels.StockCountByWarehouseCountries{}, err
-   }
-   fmt.Println("Why are you countryName", countryName, len(responseRows), responseRows[0].WarehouseName)
-
-
-   warehouses := make([]responsemodels.Warehouse, 0)
-   for _, responseRow := range responseRows {
-      _, idx := helper.FindByWhere(warehouses,
-	  func(r responsemodels.Warehouse) string { return r.Name }, responseRow.WarehouseName)
-	 
-	   if idx == -1 {
-		newWarehouse := responsemodels.Warehouse{
-			ID: responseRow.WarehouseId,
-			Name: responseRow.WarehouseName,
-			Locations: make([]models.WarehouseLocationEntry, 0),
-			Sku: map[string]models.Sku{},
+		var responseRow row
+		if err := rows.Scan(&responseRow.WarehouseLocationId, &responseRow.CountryName, &responseRow.WarehouseId,  &responseRow.LocationId, 
+			&responseRow.WarehouseLocationName, 
+			&responseRow.LocationName, &responseRow.WarehouseName,  &skusCountRaw); err != nil {
+			return responsemodels.StockCountByWarehouseCountries{}, err
 		}
-		warehouses = append(warehouses, newWarehouse)
-		idx = len(warehouses) - 1
-	  }
+		if err := json.Unmarshal(skusCountRaw, &responseRow.SkusCount); err != nil {
+			fmt.Println("Error in Unmarshalling skusCountRaw", err)
+			continue
+		}
 
-	  _, idx2  := helper.FindByWhere(warehouses[idx].Locations,
-		func(r models.WarehouseLocationEntry) int { return r.LocationId }, responseRow.LocationId)
-      if idx2 == -1 {
-		warehouses[idx].Locations = append(warehouses[idx].Locations, models.WarehouseLocationEntry{LocationName: responseRow.LocationName, LocationId: responseRow.LocationId})
-		warehouses[idx].Sku[responseRow.LocationName] = responseRow.SkusCount
-	  }
+		responseRows = append(responseRows, responseRow)
+	}
+
+	countryNameRow := DB.QueryRowContext(ctx, "SELECT name FROM warehouse.countries WHERE id = $1", countryId)
+
+	var countryName string
+
+	if err := countryNameRow.Scan(&countryName); err != nil {
+		return responsemodels.StockCountByWarehouseCountries{}, err
+	}
+	fmt.Println("Why are you countryName", countryName, len(responseRows), responseRows[0].WarehouseName)
+
+	warehouses := make([]responsemodels.Warehouse, 0)
+	for _, responseRow := range responseRows {
+		_, idx := helper.FindByWhere(warehouses,
+			func(r responsemodels.Warehouse) string { return r.Name }, responseRow.WarehouseName)
 	 
-   }
+		if idx == -1 {
+			newWarehouse := responsemodels.Warehouse{
+				ID: responseRow.WarehouseId,
+				Name: responseRow.WarehouseName,
+				Locations: make([]models.WarehouseLocationEntry, 0),
+				Sku: map[string]models.Sku{},
+			}
+			warehouses = append(warehouses, newWarehouse)
+			idx = len(warehouses) - 1
+		}
 
-   return responsemodels.StockCountByWarehouseCountries{
-	CountryId: countryId,
-	CountryName: countryName,
-	Warehouses: warehouses,
-   }, nil
+		_, idx2  := helper.FindByWhere(warehouses[idx].Locations,
+			func(r models.WarehouseLocationEntry) int { return r.LocationId }, responseRow.LocationId)
+		if idx2 == -1 {
+			warehouses[idx].Locations = append(warehouses[idx].Locations, models.WarehouseLocationEntry{LocationName: responseRow.LocationName, LocationId: responseRow.LocationId})
+			warehouses[idx].Sku[responseRow.LocationName] = responseRow.SkusCount
+		}
+	 
+	}
 
-} 
+	result := responsemodels.StockCountByWarehouseCountries{
+		CountryId: countryId,
+		CountryName: countryName,
+		Warehouses: warehouses,
+	}
+
+	// Set hash cache
+	if b, err := json.Marshal(result); err == nil {
+		_ = redis.SetHash("stockcount", countryIdStr, string(b))
+	}
+
+	return result, nil
+}
 
 // func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, error) {
 //   var stockCount models.StockCountByWarehouseCountries

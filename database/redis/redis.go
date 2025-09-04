@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"stock_automation_backend_go/shared/env"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -12,6 +14,9 @@ import (
 var redisClient *redis.Client
 
 func init() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	opts := &redis.Options{
 		Addr:     fmt.Sprintf("%v:%v", env.GetEnv(env.EnvKeys.REDIS_HOST), env.GetEnv(env.EnvKeys.REDIS_PORT)),
 		Password: env.GetEnv(env.EnvKeys.REDIS_PASSWORD),
@@ -21,17 +26,21 @@ func init() {
 
 	redisClient = redis.NewClient(opts)
 
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		panic(err)
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Printf("redis unavailable %v; continuing without cache", err)
+		redisClient = nil
 	}
 }
 
-func GetKey(key string, result interface{}) (interface{}, error) {
+func GetKey[T any](key string) (*T, error) {
+	result := new(T)
 	strResult, err := redisClient.Get(context.Background(), key).Result()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	json.Unmarshal([]byte(strResult), &result)
+	if err := json.Unmarshal([]byte(strResult), result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -43,13 +52,16 @@ func DeleteKey(key string) error {
 	return redisClient.Del(context.Background(), key).Err()
 }
 
-func GetHash(key string, field string, result interface{}) (interface{}, error) {
+func GetHash[T any](key string, field string) (*T, error) {
+	result := new(T)
 	strResult, err := redisClient.HGet(context.Background(), key, field).Result()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	json.Unmarshal([]byte(strResult), &result)
-	return redisClient.HGet(context.Background(), key, field).Result()
+	if err := json.Unmarshal([]byte(strResult), result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func SetHash(key string, field string, value string) error {
