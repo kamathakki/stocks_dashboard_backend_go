@@ -1,0 +1,8 @@
+protoc -I . --go_out=. --go-grpc_out=. --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative ./services/warehouse/proto/updatestockcountforwarehouselocation.proto
+
+protoc -I . -I "C:\Program Files\protoc-31.1-win64\include\google\protobuf" `
+  --go_out=. `
+  --go-grpc_out=. `
+  --go_opt=paths=source_relative `
+  --go-grpc_opt=paths=source_relative `
+  ./services/warehouse/proto/updatestockcountforwarehouselocation.proto

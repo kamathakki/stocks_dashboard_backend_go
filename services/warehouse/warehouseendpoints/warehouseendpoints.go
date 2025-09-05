@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/database"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	updatestockcountforwarehouselocationpb "warehouse/proto"
 	"warehouse/types/models"
 	"warehouse/types/responsemodels"
 
@@ -641,7 +643,7 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 
 	warehouses := make([]responsemodels.Warehouse, 0)
 	for _, responseRow := range responseRows {
-		_, idx := helper.FindByWhere(warehouses,
+		_, idx := helper.FindByWhere[responsemodels.Warehouse, string](&warehouses,
 			func(r responsemodels.Warehouse) string { return r.Name }, responseRow.WarehouseName)
 	 
 		if idx == -1 {
@@ -655,7 +657,7 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 			idx = len(warehouses) - 1
 		}
 
-		_, idx2  := helper.FindByWhere(warehouses[idx].Locations,
+		_, idx2  := helper.FindByWhere[models.WarehouseLocationEntry, int](&warehouses[idx].Locations,
 			func(r models.WarehouseLocationEntry) int { return r.LocationId }, responseRow.LocationId)
 		if idx2 == -1 {
 			warehouses[idx].Locations = append(warehouses[idx].Locations, models.WarehouseLocationEntry{LocationName: responseRow.LocationName, LocationId: responseRow.LocationId})
@@ -678,33 +680,35 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 	return result, nil
 }
 
-// func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, error) {
-//   var stockCount models.StockCountByWarehouseCountries
-//   if err := json.NewDecoder(r.Body).Decode(&stockCount); err != nil {
-// 	return false, err
-//   }
-//   defer r.Body.Close()
-//   parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-//   if(len(parts) < 2) {
-// 	return false, fmt.Errorf("country id is required")
-//   }
-//   countryIdStr := parts[len(parts)-1]
+type WarehouseServer struct {
+	updatestockcountforwarehouselocationpb.UnimplementedWarehouseServer
+}
 
-//   warehouseLocationStructure, err := redis.GetHash("warehouseLocationsStructure", countryIdStr, &[]models.WarehouseStructure{})
-//   if err != nil {
-// 	return false, err
-//   }
+func (s *WarehouseServer) UpdateStockCountForWarehouseLocation(ctx context.Context, req *updatestockcountforwarehouselocationpb.StockCountUpdateRequest) (*updatestockcountforwarehouselocationpb.StockCountUpdateResponse, error) {
+	if req.WarehouseLocationId == 0 || req.WarehouseId == 0 {
+		return nil, errors.New("WarehouseLocationId and WarehouseId are required")
+	}
+	if req.StockCount == nil {
+		return nil, errors.New("StockCount is required")
+	}
 
-//   for _, warehouse := range stockCount.Warehouses {
-//       warehouseStructure, _ := helper.FindByWhere(warehouseLocationStructure.([]models.WarehouseStructure), func(w models.WarehouseStructure) string { return w.Name }, warehouse.Name) 
+	stockCount := req.StockCount.AsMap()
+	fmt.Println(stockCount)
 
-// 	  for _, location := range warehouse.Locations {
-// 		_, locationIndex := helper.FindByWhere(warehouseStructure.Locations, func(l models.WarehouseLocationEntry) int { return l.LocationId }, location.LocationId)
-// 		warehouseLocationId := warehouseStructure.WarehouseLocationIds[locationIndex]
-// 		warehouseStructure.Locations = append(warehouseStructure.Locations, models.WarehouseLocationEntry{LocationName: location.LocationName, LocationId: location.LocationId})
-// 		UpdateStockCountForWarehouseLocation(map[string]interface{}{"warehouseId": warehouseStructure.ID, "warehouseLocationId": warehouseLocationId}, 
-// 		&stockCount.Warehouses[locationIndex].Sku[location.LocationName])
-// 	  }
-//   }
-// }
+    db := database.GetDB()
+
+	_, err := db.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
+		SET skus_count = $1
+		WHERE warehouse_id = $2 AND id = $3`, stockCount, req.WarehouseId, req.WarehouseLocationId)
+	if err != nil {
+		return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
+			Updated: false,
+		}, err
+	}
+
+	return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
+		Updated: true,
+	}, nil
+}
+
 

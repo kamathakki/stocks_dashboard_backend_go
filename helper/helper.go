@@ -97,8 +97,8 @@ func CreateToken(payload struct {
 
 }
 
-func FindByWhere[T any, K comparable](slice []T, selector func(T) K, want K) (*T, int) {
-	for i, v := range slice {
+func FindByWhere[T any, K comparable](slice *[]T, selector func(T) K, want K) (*T, int) {
+	for i, v := range *slice {
 		if selector(v) == want {
 			return &v, i
 		}
