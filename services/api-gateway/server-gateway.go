@@ -97,6 +97,9 @@ func newProxy(base string, stripPrefix string) http.Handler {
 }
 
 func main() {
+	socketio.RegisterHandlers()
+	socketServer := socketio.GetServer()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
@@ -108,16 +111,17 @@ func main() {
 	mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
 	mux.Handle("/api/warehouse/", ResponseWrapperProxy(newProxy(wh, "/api/warehouse")))
 	mux.Handle("/api/stockkeepingunit/", ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit")))
+	mux.Handle("/socket.io/", socketServer)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.BACKEND_PORT)),
 		Handler: mux,
 	}
 
-	socketServer := socketio.GetServer()
 	go func() {
-	// defer socketServer.Close()
+	//defer socketServer.Close()
 	socketServer.Serve()
+	defer socketServer.Close()
 	}()
 	fmt.Println("Socket server connected")
 

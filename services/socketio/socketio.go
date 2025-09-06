@@ -31,7 +31,7 @@ func init() {
 	})
 }
 
-func main() {
+func RegisterHandlers() {
 
 	io.OnConnect("/", func(s socketio.Conn) error {
 		fmt.Println("connected:", s.ID())
