@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"stock_automation_backend_go/database/redis"
 	"stock_automation_backend_go/helper"
+	"stock_automation_backend_go/services/socketio"
 	"stock_automation_backend_go/shared/env"
 	"strings"
 	"time"
@@ -112,9 +114,23 @@ func main() {
 		Handler: mux,
 	}
 
+	socketServer := socketio.GetServer()
+	go func() {
+	// defer socketServer.Close()
+	socketServer.Serve()
+	}()
+	fmt.Println("Socket server connected")
+
+	redis.InitRedis()
+	fmt.Println("Redis cache connected")
+	defer redis.QuitRedis()
+
 	fmt.Printf("API Gateway is running on port %v. \n", env.GetEnv[string](env.EnvKeys.BACKEND_PORT))
 
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("HTTP server error %v", err)
 	}
+
+
+
 }
