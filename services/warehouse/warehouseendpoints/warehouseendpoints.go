@@ -300,7 +300,7 @@ func GetStockCountFromHistory(w http.ResponseWriter, r *http.Request) (json.RawM
 	return payload, nil
 }
 
-func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]any, error) {
+func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]time.Time, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
 
@@ -325,7 +325,7 @@ func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map
 	if err := DB.QueryRowContext(ctx, query, body, countryIdStr).Scan(&createdAt); err != nil {
 		return nil, err
 	}
-	return map[string]any{"createdAt": createdAt}, nil
+	return map[string]time.Time{"createdAt": createdAt}, nil
 }
 
 func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) ([]map[string]any, error) {

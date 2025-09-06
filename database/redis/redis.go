@@ -18,9 +18,9 @@ func init() {
 	defer cancel()
 
 	opts := &redis.Options{
-		Addr:     fmt.Sprintf("%v:%v", env.GetEnv(env.EnvKeys.REDIS_HOST), env.GetEnv(env.EnvKeys.REDIS_PORT)),
-		Password: env.GetEnv(env.EnvKeys.REDIS_PASSWORD),
-		Username: env.GetEnv(env.EnvKeys.REDIS_USER),
+		Addr:     fmt.Sprintf("%v:%v", env.GetEnv[string](env.EnvKeys.REDIS_HOST), env.GetEnv[string](env.EnvKeys.REDIS_PORT)),
+		Password: env.GetEnv[string](env.EnvKeys.REDIS_PASSWORD),
+		Username: env.GetEnv[string](env.EnvKeys.REDIS_USER),
 		DB:       0,
 	}
 

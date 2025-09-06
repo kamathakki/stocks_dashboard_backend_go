@@ -99,20 +99,20 @@ func main() {
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
 
-	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.IAM_PORT))
-	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.SKU_PORT))
-	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT))
+	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.IAM_PORT))
+	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.SKU_PORT))
+	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
 
 	mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
 	mux.Handle("/api/warehouse/", ResponseWrapperProxy(newProxy(wh, "/api/warehouse")))
 	mux.Handle("/api/stockkeepingunit/", ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit")))
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.BACKEND_PORT)),
+		Addr:    fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.BACKEND_PORT)),
 		Handler: mux,
 	}
 
-	fmt.Printf("API Gateway is running on port %v. \n", env.GetEnv(env.EnvKeys.BACKEND_PORT))
+	fmt.Printf("API Gateway is running on port %v. \n", env.GetEnv[string](env.EnvKeys.BACKEND_PORT))
 
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("HTTP server error %v", err)
