@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -40,12 +41,42 @@ func init() {
 	}
 }
 
-func GetEnv(key string) string {
+func GetEnv[T any](key string) T {
 	val, ok := os.LookupEnv(key)
+	var zero T
 
 	if !ok {
-		return ""
+		return zero
 	}
 
-	return val
+	switch any(zero).(type) {
+	case int:
+		i, err := strconv.Atoi(val)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be int: %v", key, err))
+		}
+		return any(i).(T)
+	case int64:
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be int64: %v", key, err))
+		}
+		return any(i).(T)
+	case float64:
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be float64: %v", key, err))
+		}
+		return any(f).(T)
+	case bool:
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be bool: %v", key, err))
+		}
+		return any(b).(T)
+	case string:
+		return any(val).(T)
+	default:
+		return zero
+	}
 }

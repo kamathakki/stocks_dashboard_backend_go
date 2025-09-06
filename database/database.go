@@ -17,7 +17,7 @@ func init() {
 
 func Open() {
 	connStr := fmt.Sprintf("user=%v dbname=%v password=%v sslmode=disable",
-		env.GetEnv(env.EnvKeys.PG_USER), env.GetEnv(env.EnvKeys.DB_NAME), env.GetEnv(env.EnvKeys.PG_PASS))
+		env.GetEnv[string](env.EnvKeys.PG_USER), env.GetEnv[string](env.EnvKeys.DB_NAME), env.GetEnv[string](env.EnvKeys.PG_PASS))
 	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
 		fmt.Print(err)

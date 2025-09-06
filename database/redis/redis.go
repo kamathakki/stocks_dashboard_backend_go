@@ -13,14 +13,14 @@ import (
 
 var redisClient *redis.Client
 
-func init() {
+func InitRedis() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	opts := &redis.Options{
-		Addr:     fmt.Sprintf("%v:%v", env.GetEnv(env.EnvKeys.REDIS_HOST), env.GetEnv(env.EnvKeys.REDIS_PORT)),
-		Password: env.GetEnv(env.EnvKeys.REDIS_PASSWORD),
-		Username: env.GetEnv(env.EnvKeys.REDIS_USER),
+		Addr:     fmt.Sprintf("%v:%v", env.GetEnv[string](env.EnvKeys.REDIS_HOST), env.GetEnv[string](env.EnvKeys.REDIS_PORT)),
+		Password: env.GetEnv[string](env.EnvKeys.REDIS_PASSWORD),
+		Username: env.GetEnv[string](env.EnvKeys.REDIS_USER),
 		DB:       0,
 	}
 
@@ -33,26 +33,42 @@ func init() {
 }
 
 func GetKey[T any](key string) (*T, error) {
+	// If redis is unavailable, behave like a cache miss
+	if redisClient == nil {
+		return new(T), redis.Nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	result := new(T)
-	strResult, err := redisClient.Get(context.Background(), key).Result()
+	strResult, err := redisClient.Get(ctx, key).Result()
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	if err := json.Unmarshal([]byte(strResult), result); err != nil {
-		return nil, err
+		return result, err
 	}
 	return result, nil
 }
 
 func SetKey(key string, value string) error {
+	if redisClient == nil {
+		return nil
+	}
 	return redisClient.Set(context.Background(), key, value, 0).Err()
 }
 
 func DeleteKey(key string) error {
+	if redisClient == nil {
+		return nil
+	}
 	return redisClient.Del(context.Background(), key).Err()
 }
 
 func GetHash[T any](key string, field string) (*T, error) {
+	if redisClient == nil {
+		fmt.Println("Redis is unavailable")
+		return new(T), redis.Nil
+	}
 	result := new(T)
 	strResult, err := redisClient.HGet(context.Background(), key, field).Result()
 	if err != nil {
@@ -65,13 +81,22 @@ func GetHash[T any](key string, field string) (*T, error) {
 }
 
 func SetHash(key string, field string, value string) error {
+	if redisClient == nil {
+		return nil
+	}
 	return redisClient.HSet(context.Background(), key, field, value).Err()
 }
 
 func DeleteHash(key string, field string) error {
+	if redisClient == nil {
+		return nil
+	}
 	return redisClient.HDel(context.Background(), key, field).Err()
 }
 
 func QuitRedis() error {
+	if redisClient == nil {
+		return nil
+	}
 	return redisClient.Close()
 }

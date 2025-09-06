@@ -243,6 +243,8 @@ func GetCountries(w http.ResponseWriter, r *http.Request) ([]Country, error) {
 	// Try cache
 	if cached, err := redis.GetKey[[]Country]("countries"); err == nil && cached != nil {
 		return *cached, nil
+	} else if cached == nil {
+		fmt.Println("No cache found for countries")
 	}
 
 	rows, err := DB.QueryContext(ctx, `SELECT id, name FROM warehouse.countries ORDER BY id`)
@@ -300,7 +302,7 @@ func GetStockCountFromHistory(w http.ResponseWriter, r *http.Request) (json.RawM
 	return payload, nil
 }
 
-func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]any, error) {
+func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]time.Time, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
 
@@ -319,13 +321,13 @@ func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map
 	}
 	defer r.Body.Close()
 
-	query := `INSERT INTO public.stock_count_history (stock_count, country_id)
+	query := `INSERT INTO stockkeepingunit.stock_count_history (stock_count, country_id)
 	          VALUES ($1, $2) RETURNING created_at`
 	var createdAt time.Time
 	if err := DB.QueryRowContext(ctx, query, body, countryIdStr).Scan(&createdAt); err != nil {
 		return nil, err
 	}
-	return map[string]any{"createdAt": createdAt}, nil
+	return map[string]time.Time{"createdAt": createdAt}, nil
 }
 
 func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) ([]map[string]any, error) {
@@ -578,6 +580,7 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 
 	// Try hash cache first
 	if cached, err := redis.GetHash[responsemodels.StockCountByWarehouseCountries]("stockcount", countryIdStr); err == nil && cached != nil {
+		fmt.Println("Cached data found for countryId", countryIdStr)
 		return *cached, nil
 	}
 

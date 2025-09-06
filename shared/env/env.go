@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -22,9 +23,21 @@ var EnvKeys = struct {
 	REDIS_PASSWORD     string
 	REDIS_HOST         string
 	REDIS_PORT         string
+	PROTOCOL           string
+	JOB_TIME_HOUR      string
+	JOB_TIME_MINUTE    string
+	JOB_TIME_SECOND    string
+	JOB_TIME_DAY       string
+	JOB_TIME_HOUR_FREQUENCY string
+	JOB_TIME_MINUTE_FREQUENCY string
+	JOB_TIME_SECOND_FREQUENCY string
+	JOB_TIME_DAY_FREQUENCY string
 }{PG_USER: "PG_USER", PG_PASS: "PG_PASS", DB_NAME: "DB_NAME", BACKEND_PORT: "BACKEND_PORT", SECRET_KEY: "SECRET_KEY",
 	REFRESH_SECRET_KEY: "REFRESH_SECRET_KEY", IAM_PORT: "IAM_PORT", SKU_PORT: "SKU_PORT", WAREHOUSE_PORT: "WAREHOUSE_PORT",
-	REDIS_USER: "REDIS_USER", REDIS_PASSWORD: "REDIS_PASSWORD", REDIS_HOST: "REDIS_HOST", REDIS_PORT: "REDIS_PORT"}
+	REDIS_USER: "REDIS_USER", REDIS_PASSWORD: "REDIS_PASSWORD", REDIS_HOST: "REDIS_HOST", REDIS_PORT: "REDIS_PORT", PROTOCOL: "PROTOCOL",
+    JOB_TIME_HOUR: "JOB_TIME_HOUR", JOB_TIME_MINUTE: "JOB_TIME_MINUTE", JOB_TIME_SECOND: "JOB_TIME_SECOND", 
+	JOB_TIME_DAY: "JOB_TIME_DAY", JOB_TIME_HOUR_FREQUENCY: "JOB_TIME_HOUR_FREQUENCY", JOB_TIME_MINUTE_FREQUENCY: "JOB_TIME_MINUTE_FREQUENCY", 
+	JOB_TIME_SECOND_FREQUENCY: "JOB_TIME_SECOND_FREQUENCY", JOB_TIME_DAY_FREQUENCY: "JOB_TIME_DAY_FREQUENCY"}
 
 func init() {
 	err := godotenv.Load(".env.development")
@@ -34,7 +47,10 @@ func init() {
 	}
 
 	requiredEnvs := []string{"PG_USER", "PG_PASS", "DB_NAME", "BACKEND_PORT", "SECRET_KEY", "REFRESH_SECRET_KEY",
-		"IAM_PORT", "SKU_PORT", "WAREHOUSE_PORT", "REDIS_USER", "REDIS_PASSWORD", "REDIS_HOST", "REDIS_PORT"}
+		"IAM_PORT", "SKU_PORT", "WAREHOUSE_PORT", "REDIS_USER", "REDIS_PASSWORD", "REDIS_HOST", "REDIS_PORT", "PROTOCOL",
+		"JOB_TIME_HOUR", "JOB_TIME_MINUTE", "JOB_TIME_SECOND", "JOB_TIME_DAY", "JOB_TIME_HOUR_FREQUENCY", "JOB_TIME_MINUTE_FREQUENCY",
+		"JOB_TIME_SECOND_FREQUENCY", "JOB_TIME_DAY_FREQUENCY",
+	}
 
 	for _, envVariable := range requiredEnvs {
 		envVariableValue := os.Getenv(envVariable)
@@ -46,12 +62,42 @@ func init() {
 
 }
 
-func GetEnv(key string) string {
+func GetEnv[T any](key string) T {
 	val, ok := os.LookupEnv(key)
+	var zero T
 
 	if !ok {
-		return ""
+		return zero
 	}
 
-	return val
+	switch any(zero).(type) {
+	case int:
+		i, err := strconv.Atoi(val)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be int: %v", key, err))
+		}
+		return any(i).(T)
+	case int64:
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be int64: %v", key, err))
+		}
+		return any(i).(T)
+	case float64:
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be float64: %v", key, err))
+		}
+		return any(f).(T)
+	case bool:
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			panic(fmt.Sprintf("Env %s must be bool: %v", key, err))
+		}
+		return any(b).(T)
+	case string:
+		return any(val).(T)
+	default:
+		return zero
+	}
 }

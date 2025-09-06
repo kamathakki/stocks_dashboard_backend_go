@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"stock_automation_backend_go/database/redis"
 	"warehouse/env"
+	stockCountJob "warehouse/job"
 	updatestockcountforwarehouselocationpb "warehouse/proto"
 	"warehouse/routes"
 	"warehouse/warehouseendpoints"
@@ -14,9 +16,12 @@ import (
 )
 
 func main() {
+	redis.InitRedis()
+	fmt.Println("Redis cache connected")
+	defer redis.QuitRedis()
 	mux := http.NewServeMux()
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT)))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)))
 	if err != nil {
 		fmt.Printf("Error listening to port %v", err)
 		return
@@ -38,12 +43,14 @@ func main() {
 		Handler: mux,
 	}
 
+
+    go stockCountJob.RunJob()
 	go func() { grpcServer.Serve(grpcL) }()
 	go func() { server.Serve(httpL) }()
-
-	fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT))
+	fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
 
 	if err := m.Serve(); err != nil {
 		fmt.Printf("Error in configuration %v", err)
 	}
+	
 }

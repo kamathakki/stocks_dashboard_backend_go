@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"stock_automation_backend_go/database/redis"
 	"stockkeepingunit/env"
 	"stockkeepingunit/routes"
 
@@ -16,10 +17,13 @@ type StockKeepingUnitServer struct {
 }
 
 func main() {
+	redis.InitRedis()
+	fmt.Println("Redis cache connected")
+	defer redis.QuitRedis()
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv((env.EnvKeys.SKU_PORT))))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string]((env.EnvKeys.SKU_PORT))))
 	if err != nil {
 		fmt.Printf("Error listening to port %v", err)
 		return
@@ -40,7 +44,7 @@ func main() {
 	go func() { grpcServer.Serve(grpcL) }()
 	go func() { server.Serve(httpL) }()
 
-	fmt.Printf("SKU server and GRPC server is running on port %v. \n", env.GetEnv(env.EnvKeys.SKU_PORT))
+	fmt.Printf("SKU server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.SKU_PORT))
 
 	if err := m.Serve(); err != nil {
 		fmt.Printf("HTTP server error %v", err)
