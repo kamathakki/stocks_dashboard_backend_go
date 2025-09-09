@@ -36,7 +36,8 @@ type LoginResponseUser struct {
 }
 
 type LoginResponse struct {
-	User       LoginResponseUser `json:"user"`
-	Token      string            `json:"token"`
-	IsLoggedIn bool              `json:"isLoggedIn"`
+	User         LoginResponseUser `json:"user"`
+	Token        string            `json:"token"`
+	RefreshToken string            `json:"refreshToken"`
+	IsLoggedIn   bool              `json:"isLoggedIn"`
 }

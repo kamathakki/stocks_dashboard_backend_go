@@ -142,3 +142,30 @@ func Job(hours int64, minutes int64, seconds int64, days int64) bool {
 
 	return true
 }
+
+var (
+	JOB_TIME_HOUR   int64 = env.GetEnv[int64]("JOB_TIME_HOUR")
+	JOB_TIME_MINUTE int64 = env.GetEnv[int64]("JOB_TIME_MINUTE")
+	JOB_TIME_SECOND int64 = env.GetEnv[int64]("JOB_TIME_SECOND")
+	JOB_TIME_DAY    int64 = env.GetEnv[int64]("JOB_TIME_DAY")
+)
+
+func JobTimeEmit() (int64, int64, int64, int64, map[string]time.Time) {
+
+	for IsTimeInPast(JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY) {
+		JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY = JobTimeSetter(JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY)
+	}
+
+	now := time.Now()
+	targetTime := time.Date(
+		now.Year(),
+		now.Month(),
+		now.Day()+int(JOB_TIME_DAY),
+		int(JOB_TIME_HOUR),
+		int(JOB_TIME_MINUTE),
+		int(JOB_TIME_SECOND), 0, now.Location())
+	fmt.Println("Job Time: ", targetTime)
+
+	//socketio.Broadcast("jobScheduledEvent", )
+    return JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY, map[string]time.Time{"scheduledForTime": targetTime}
+}

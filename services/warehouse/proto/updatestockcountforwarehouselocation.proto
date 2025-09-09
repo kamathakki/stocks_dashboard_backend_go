@@ -4,8 +4,6 @@ package warehouse.v1;
 
 option go_package = "warehouse/proto/updatestockcountforwarehouselocationpb;updatestockcountforwarehouselocationpb";
 
-import "google/protobuf/struct.proto";
-
 service Warehouse {
     rpc UpdateStockcountForWarehouselocation(StockCountUpdateRequest) returns (StockCountUpdateResponse);
 }
@@ -13,7 +11,7 @@ service Warehouse {
 message StockCountUpdateRequest {
    int64 warehouseLocationId = 1;
    int64 warehouseId = 2;
-   google.protobuf.Struct stockCount = 3; 
+   map<string, int64> stockCount = 3;
 }
 
 message StockCountUpdateResponse {

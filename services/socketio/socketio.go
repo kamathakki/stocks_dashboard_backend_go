@@ -1,69 +1,82 @@
 package socketio
 
 import (
+	"encoding/json"
 	"fmt"
-	"stock_automation_backend_go/shared/env"
+	"net/http"
+	"stock_automation_backend_go/helper"
+	"time"
 
-	socketio "github.com/googollee/go-socket.io"
-	"github.com/googollee/go-socket.io/engineio"
-	"github.com/googollee/go-socket.io/engineio/transport"
-	"github.com/googollee/go-socket.io/engineio/transport/polling"
-	"github.com/googollee/go-socket.io/engineio/transport/websocket"
+	socketio "github.com/doquangtan/socketio/v4"
 )
 
-var io *socketio.Server
-var httpProtocol = env.GetEnv[string](env.EnvKeys.PROTOCOL)
-var wsProtocol []transport.Transport
+// Socket.IO v4-compatible server wrapper implementing http.Handler
+// and providing no-op Serve/Close to match existing gateway usage.
 
-type ConnState struct {
-	UserId int
+type SocketServer struct {
+	handler http.Handler
+}
+
+func (s *SocketServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.handler.ServeHTTP(w, r)
+}
+
+func (s *SocketServer) Serve() {}
+
+func (s *SocketServer) Close() error { return nil }
+
+var (
+	srv      *SocketServer
+	ioServer broadcaster
+)
+
+type broadcaster interface {
+	Emit(string, ...interface{}) error
 }
 
 func init() {
+	server := socketio.New()
+	ioServer = server
 
-	if httpProtocol == "http" {
-		wsProtocol = []transport.Transport{websocket.Default}
-	} else {
-		wsProtocol = []transport.Transport{websocket.Default, polling.Default}
+	server.OnConnection(func(sock *socketio.Socket) {
+		fmt.Println("connected:", sock.Id)
+		_, _, _, _, jobTime := helper.JobTimeEmit()
+		scheduled := jobTime["scheduledForTime"].Format(time.RFC3339)
+		payload := map[string]string{"scheduledForTime": scheduled}
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			fmt.Println("Error encoding jobScheduledEvent:", err)
+			return
+		}
+		fmt.Println("jobScheduledEvent:", string(jsonPayload))
+		sock.Emit("jobScheduledEvent", string(jsonPayload))
+
+		sock.On("uploadEvent", func(ev *socketio.EventPayload) {
+			var msg string
+			if ev != nil && len(ev.Data) > 0 {
+				if s, ok := ev.Data[0].(string); ok {
+					msg = s
+				}
+			}
+			sock.Emit("uploadEvent", msg)
+		})
+
+		sock.On("disconnect", func(ev *socketio.EventPayload) {
+			fmt.Println("closed:", "client namespace disconnect")
+		})
+	})
+
+	srv = &SocketServer{handler: server.HttpHandler()}
+}
+
+// Broadcast emits to all clients in the default namespace.
+func Broadcast(event string, data any) {
+	if ioServer == nil {
+		return
 	}
-	io = socketio.NewServer(&engineio.Options{
-		Transports: wsProtocol,
-	})
+	_ = ioServer.Emit(event, data)
 }
 
-func RegisterHandlers() {
-
-	io.OnConnect("/", func(s socketio.Conn) error {
-		fmt.Println("connected:", s.ID())
-		s.SetContext(&ConnState{})
-
-		return nil
-	})
-
-	io.OnEvent("/", "notice", func(s socketio.Conn, msg string) {
-		fmt.Println("notice: ", msg)
-		s.Emit("response", "Hello from server")
-	})
-
-	io.OnEvent("/", "uploadEvent", func(s socketio.Conn, msg string) string {
-		s.SetContext(msg)
-		s.Emit("uploadEvent", msg)
-		return "received: " + msg
-	})
-
-	io.OnError("/", func(s socketio.Conn, e error) {
-		// server.Remove(s.ID())
-		s.SetContext(nil)
-		fmt.Println("meet error:", e)
-	})
-
-	io.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		// Add the Remove session id. Fixed the connection & mem leak
-		s.SetContext(nil)
-		fmt.Println("closed", reason)
-	})
-}
-
-func GetServer() *socketio.Server {
-	return io
+func GetServer() *SocketServer {
+	return srv
 }

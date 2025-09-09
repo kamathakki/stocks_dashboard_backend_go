@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"stock_automation_backend_go/database/redis"
 	"warehouse/env"
 	stockCountJob "warehouse/job"
@@ -19,38 +20,60 @@ func main() {
 	redis.InitRedis()
 	fmt.Println("Redis cache connected")
 	defer redis.QuitRedis()
-	mux := http.NewServeMux()
+    mux := http.NewServeMux()
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)))
-	if err != nil {
-		fmt.Printf("Error listening to port %v", err)
-		return
-	}
+    // If WAREHOUSE_GRPC_PORT is provided, run HTTP and gRPC on separate ports.
+    if grpcPort, ok := os.LookupEnv("WAREHOUSE_GRPC_PORT"); ok && grpcPort != "" {
+        routes.RegisterRoutes(mux)
 
-	m := cmux.New(listener)
+        httpPort := env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)
 
-	grpcL := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-	grpcServer := grpc.NewServer()
+        grpcListener, err := net.Listen("tcp", fmt.Sprintf(":%s", grpcPort))
+        if err != nil {
+            fmt.Printf("Error listening to grpc port %v", err)
+            return
+        }
 
-	updatestockcountforwarehouselocationpb.RegisterWarehouseServer(grpcServer, &warehouseendpoints.WarehouseServer{})
+        grpcServer := grpc.NewServer()
+        updatestockcountforwarehouselocationpb.RegisterWarehouseServer(grpcServer, &warehouseendpoints.WarehouseServer{})
 
-	httpL := m.Match(cmux.HTTP1Fast())
-	
-	routes.RegisterRoutes(mux)
+        go stockCountJob.RunJob()
+        go func() { grpcServer.Serve(grpcListener) }()
+        go func() { http.ListenAndServe(fmt.Sprintf(":%v", httpPort), mux) }()
+        fmt.Printf("Warehouse HTTP running on %v, gRPC running on %s. \n", httpPort, grpcPort)
+        select {}
+    } else {
+        listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)))
+        if err != nil {
+            fmt.Printf("Error listening to port %v", err)
+            return
+        }
 
-	server := &http.Server{
-		// Addr:    fmt.Sprintf(":%v", env.GetEnv(env.EnvKeys.WAREHOUSE_PORT)),
-		Handler: mux,
-	}
+        m := cmux.New(listener)
 
+        grpcL := m.MatchWithWriters(
+            cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"),
+        )
+        grpcServer := grpc.NewServer()
 
-    go stockCountJob.RunJob()
-	go func() { grpcServer.Serve(grpcL) }()
-	go func() { server.Serve(httpL) }()
-	fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
+        updatestockcountforwarehouselocationpb.RegisterWarehouseServer(grpcServer, &warehouseendpoints.WarehouseServer{})
 
-	if err := m.Serve(); err != nil {
-		fmt.Printf("Error in configuration %v", err)
-	}
+        httpL := m.Match(cmux.Any())
+        
+        routes.RegisterRoutes(mux)
+
+        server := &http.Server{
+            Handler: mux,
+        }
+
+        go stockCountJob.RunJob()
+        go func() { grpcServer.Serve(grpcL) }()
+        go func() { server.Serve(httpL) }()
+        fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
+
+        if err := m.Serve(); err != nil {
+            fmt.Printf("Error in configuration %v", err)
+        }
+    }
 	
 }

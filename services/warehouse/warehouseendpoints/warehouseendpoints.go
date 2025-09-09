@@ -185,7 +185,7 @@ func GetWarehouseLocationsStructure(w http.ResponseWriter, r *http.Request) ([]m
 			}
 		}
 		if !foundLoc {
-			ws.Locations = append(ws.Locations, models.WarehouseLocationEntry{LocationName: d.LocationName, LocationId: d.WarehouseLocationId})
+			ws.Locations = append(ws.Locations, models.WarehouseLocationEntry{LocationName: d.LocationName, LocationId: d.LocationId})
 		}
 
 		contains := func(arr []int, v int) bool {
@@ -465,42 +465,6 @@ func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) (
 	return out, nil
 }
 
-func UpdateStockCountForWarehouseLocation(w http.ResponseWriter, r *http.Request) (bool, error) {
-	DB := database.GetDB()
-	ctx := context.Background()
-
-	// Expect path: /updateStockCountForWarehouseLocation/{warehouseId}/{warehouseLocationId}
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 3 {
-		return false, fmt.Errorf("warehouseId and warehouseLocationId required")
-	}
-	wlId := parts[len(parts)-1]
-	whId := parts[len(parts)-2]
-
-	var bodyParser struct {
-		StockCount json.RawMessage `json:"stockCount"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&bodyParser); err != nil {
-		return false, err
-	}
-	defer r.Body.Close()
-
-	_, err := DB.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
-		SET skus_count = $1
-		WHERE warehouse_id = $2 AND id = $3`, &bodyParser, whId, wlId)
-	if err != nil {
-		return false, err
-	}
-
-	// Invalidate country stockcount cache entry
-	var countryId int
-	if err := DB.QueryRowContext(ctx, `SELECT country_id FROM warehouse.warehouse_locations WHERE id = $1`, wlId).Scan(&countryId); err == nil {
-		_ = redis.DeleteHash("stockcount", strconv.Itoa(countryId))
-	}
-
-	return true, nil
-}
-
 func UpdateWarehouseColumnMapping(w http.ResponseWriter, r *http.Request) (bool, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
@@ -683,35 +647,133 @@ func GetStockCountData(w http.ResponseWriter, r *http.Request) (responsemodels.S
 	return result, nil
 }
 
+func UpdateStockCountForWarehouseLocation(w http.ResponseWriter, r *http.Request) (bool, error) {
+	DB := database.GetDB()
+	ctx := context.Background()
+
+	fmt.Println("Reached here mother 3")
+
+	// Expect path: /updateStockCountForWarehouseLocation/{warehouseId}/{warehouseLocationId}
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		return false, fmt.Errorf("warehouseId and warehouseLocationId required")
+	}
+	wlId := parts[len(parts)-1]
+	whId := parts[len(parts)-2]
+
+	var bodyParser struct {
+		StockCount json.RawMessage `json:"stockCount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&bodyParser); err != nil {
+		return false, err
+	}
+	defer r.Body.Close()
+
+	_, err := DB.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
+		SET skus_count = $1
+		WHERE warehouse_id = $2 AND id = $3`, &bodyParser, whId, wlId)
+	if err != nil {
+		return false, err
+	}
+
+	// Invalidate country stockcount cache entry
+	var countryId int
+	if err := DB.QueryRowContext(ctx, `SELECT country_id FROM warehouse.warehouse_locations WHERE id = $1`, wlId).Scan(&countryId); err == nil {
+		_ = redis.DeleteHash("stockcount", strconv.Itoa(countryId))
+	}
+
+	return true, nil
+}
+
 type WarehouseServer struct {
 	updatestockcountforwarehouselocationpb.UnimplementedWarehouseServer
 }
 
-func (s *WarehouseServer) UpdateStockCountForWarehouseLocation(ctx context.Context, req *updatestockcountforwarehouselocationpb.StockCountUpdateRequest) (*updatestockcountforwarehouselocationpb.StockCountUpdateResponse, error) {
-	if req.WarehouseLocationId == 0 || req.WarehouseId == 0 {
-		return nil, errors.New("WarehouseLocationId and WarehouseId are required")
-	}
-	if req.StockCount == nil {
-		return nil, errors.New("StockCount is required")
-	}
+// func (s *WarehouseServer) UpdateStockcountForWarehouselocation(ctx context.Context, req *updatestockcountforwarehouselocationpb.StockCountUpdateRequest) (*updatestockcountforwarehouselocationpb.StockCountUpdateResponse, error) {
+// 	if req.WarehouseLocationId == 0 || req.WarehouseId == 0 {
+// 		return nil, errors.New("WarehouseLocationId and WarehouseId are required")
+// 	}
+// 	if req.StockCount == nil || req.StockCount.GetFields() == nil {
+// 		return nil, errors.New("StockCount is required")
+// 	}
 
-	stockCount := req.StockCount.AsMap()
-	fmt.Println(stockCount)
+// 	// stockCount := models.Sku{}
+// 	jsonBytes, err := protojson.Marshal(req.StockCount); if err != nil {
+// 		return nil, err
+// 	}
+// 	// Persist the received JSON as-is to avoid type coercion issues
+// 	fmt.Println(string(jsonBytes))
+
+// 	// if err := json.Unmarshal(jsonBytes, &stockCount); err != nil {
+// 	// 	return nil, err
+// 	// }
+
+//     db := database.GetDB()
+
+// 	sqlResult , err := db.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
+// 		SET skus_count = $1
+// 		WHERE warehouse_id = $2 AND id = $3`, string(jsonBytes), req.WarehouseId, req.WarehouseLocationId)
+// 	if err != nil {
+// 		return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
+// 			Updated: false,
+// 		}, err
+// 	}
+
+// 	fmt.Println(sqlResult.RowsAffected())
+
+// 	// Invalidate country stockcount cache entry
+// 	var countryId int
+// 	if err := db.QueryRowContext(ctx, `SELECT country_id FROM warehouse.warehouse_locations WHERE id = $1`, req.WarehouseLocationId).Scan(&countryId); err == nil {
+// 		_ = redis.DeleteHash("stockcount", strconv.Itoa(countryId))
+// 	}
+
+// 	return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
+// 		Updated: true,
+// 	}, nil
+// }
+
+// proto: map<string,int64> stock_count = 3
+func (s *WarehouseServer) UpdateStockcountForWarehouselocation(
+    ctx context.Context,
+    req *updatestockcountforwarehouselocationpb.StockCountUpdateRequest,
+) (*updatestockcountforwarehouselocationpb.StockCountUpdateResponse, error) {
+
+	fmt.Println("Reached here mother 1")
+
+    if req.WarehouseLocationId == 0 || req.WarehouseId == 0 {
+        return nil, errors.New("WarehouseLocationId and WarehouseId are required")
+    }
+
+    if req.StockCount == nil || len(req.StockCount) == 0 {
+        return nil, errors.New("StockCount is required and must contain at least one entry")
+    }
+
+	fmt.Println("Reached here mother 2")
+
+
+    jsonBytes, err := json.Marshal(req.StockCount) // store map as JSON string in DB
+    if err != nil {
+        return nil, fmt.Errorf("failed to marshal stock_count: %w", err)
+    }
 
     db := database.GetDB()
+    _, err = db.ExecContext(ctx, `
+        UPDATE warehouse.warehouse_locations
+        SET skus_count = $1
+        WHERE warehouse_id = $2 AND id = $3`,
+        string(jsonBytes), req.WarehouseId, req.WarehouseLocationId)
+    if err != nil {
+        return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{Updated: false}, err
+    }
 
-	_, err := db.ExecContext(ctx, `UPDATE warehouse.warehouse_locations
-		SET skus_count = $1
-		WHERE warehouse_id = $2 AND id = $3`, stockCount, req.WarehouseId, req.WarehouseLocationId)
-	if err != nil {
-		return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
-			Updated: false,
-		}, err
-	}
+    // Invalidate cache
+    var countryId int
+    if err := db.QueryRowContext(ctx, `SELECT country_id FROM warehouse.warehouse_locations WHERE id = $1`,
+        req.WarehouseLocationId).Scan(&countryId); err == nil {
+        _ = redis.DeleteHash("stockcount", strconv.Itoa(countryId))
+    }
 
-	return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{
-		Updated: true,
-	}, nil
+    return &updatestockcountforwarehouselocationpb.StockCountUpdateResponse{Updated: true}, nil
 }
 
 

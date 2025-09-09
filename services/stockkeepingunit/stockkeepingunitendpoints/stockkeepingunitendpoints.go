@@ -9,20 +9,19 @@ import (
 	"stock_automation_backend_go/database/redis"
 	"stock_automation_backend_go/helper"
 	"stockkeepingunit/types/models"
+	"stockkeepingunit/types/models/responsemodels"
 	"strings"
 	"time"
 	updatestockcountforwarehouselocationpb "warehouse/proto"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 
 
-func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.StockKeepingUnit, error) {
+func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]responsemodels.StockKeepingUnit, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
 
@@ -33,8 +32,8 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.Stoc
 		return nil, err
 	}
 
-	var SKURow models.StockKeepingUnit
-	var stockKeepingUnitRows []models.StockKeepingUnit
+	var SKURow responsemodels.StockKeepingUnit
+	var stockKeepingUnitRows []responsemodels.StockKeepingUnit
 
 	defer dbResponse.Close()
 
@@ -52,9 +51,9 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.Stoc
 }
 
 func UpdateStockCountInMemory(w http.ResponseWriter, r *http.Request) (bool, error) {
-  var stockCount models.StockCountByWarehouseCountries
-  if err := json.NewDecoder(r.Body).Decode(&stockCount); err != nil {
-	return false, err
+  var stockCountBody struct { StockCount models.StockCountByWarehouseCountries `json:"stockCount"` }
+  if err := json.NewDecoder(r.Body).Decode(&stockCountBody.StockCount); err != nil {
+	return false, fmt.Errorf("error decoding stock count body: %w", err)
   }
   defer r.Body.Close()
 
@@ -64,9 +63,9 @@ func UpdateStockCountInMemory(w http.ResponseWriter, r *http.Request) (bool, err
   }
   countryIdStr := parts[len(parts)-1]
 
-  stockCountStr, err := json.Marshal(stockCount)
+  stockCountStr, err := json.Marshal(stockCountBody.StockCount)
   if err != nil {
-	return false, err
+	return false, fmt.Errorf("error marshalling stock count: %w", err)
   }
 
   if err := redis.SetHash("stockcount", countryIdStr, string(stockCountStr)); err != nil {
@@ -76,12 +75,12 @@ func UpdateStockCountInMemory(w http.ResponseWriter, r *http.Request) (bool, err
   return true, nil
 }
 
-func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, error) {
+func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (any, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx,"localhost:6002",
+	conn, err := grpc.DialContext(ctx, "localhost:7002",
      grpc.WithTransportCredentials(insecure.NewCredentials()))
 	 if err != nil {
 		fmt.Println("Error connecting to warehouse gRPC server:", err)
@@ -91,49 +90,79 @@ func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, er
 	 
 	grpcClient := updatestockcountforwarehouselocationpb.NewWarehouseClient(conn)
 
-	var stockCount models.StockCountByWarehouseCountries
-	if err := json.NewDecoder(r.Body).Decode(&stockCount); err != nil {
-	  return false, err
+	var stockCountBody struct { StockCount models.StockCountByWarehouseCountries `json:"stockCount"` }
+	if err := json.NewDecoder(r.Body).Decode(&stockCountBody); err != nil {
+		return false, err
 	}
+
 	defer r.Body.Close()
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if(len(parts) < 2) {
 	  return false, fmt.Errorf("country id is required")
 	}
 	countryIdStr := parts[len(parts)-1]
-  
-	warehouseLocationStructure, err := redis.GetHash[[]models.WarehouseStructure]("warehouseLocationsStructure", countryIdStr)
+
+	fmt.Println("Reached here mother")
+
+	warehouseLocationStructure, err := redis.GetKey[[]models.WarehouseStructure]("warehouseLocationsStructure")
 	if err != nil {
 	  return false, err
 	}
-  
-	for _, warehouse := range stockCount.Warehouses {
-		warehouseStructure, _ := helper.FindByWhere[models.WarehouseStructure, string](warehouseLocationStructure, func(w models.WarehouseStructure) string { return w.Name }, warehouse.Name) 
-  
+	fmt.Println("Reached here mother 1")
+	
+	for _, warehouse := range stockCountBody.StockCount.Warehouses {
+		fmt.Println("Reached here mother 2")
+		warehouseStructure, _ := helper.FindByWhere(warehouseLocationStructure, func(w models.WarehouseStructure) string { return w.Name }, warehouse.Name)
+		if warehouseStructure == nil {
+			return false, fmt.Errorf("warehouse %s not found in cached structure", warehouse.Name)
+		}
+
 		for _, location := range warehouse.Locations {
-		  _, locationIndex := helper.FindByWhere[models.WarehouseLocationEntry, int](&warehouseStructure.Locations, func(l models.WarehouseLocationEntry) int { return l.LocationId }, location.LocationId)
-		  warehouseLocationId := warehouseStructure.WarehouseLocationIds[locationIndex]
-		  warehouseStructure.Locations = append(warehouseStructure.Locations, models.WarehouseLocationEntry{LocationName: location.LocationName, LocationId: location.LocationId})
+			fmt.Println("Reached here mother 3")
+			_, locationIdx := helper.FindByWhere(&warehouseStructure.Locations, func(l models.WarehouseLocationEntry) int { return l.LocationId }, location.LocationId)
+			if locationIdx < 0 || locationIdx >= len(warehouseStructure.WarehouseLocationIds) {
+				return false, fmt.Errorf("location %d not found for warehouse %s", location.LocationId, warehouse.Name)
+			}
+
+			warehouseLocationId := warehouseStructure.WarehouseLocationIds[locationIdx]
+
+			skuForLocation, ok := warehouse.Sku[location.LocationName]
+			if !ok {
+				return false, fmt.Errorf("sku not provided for location %s in warehouse %s", location.LocationName, warehouse.Name)
+			}
 
 
-		  stockCountMap, _ := structpb.NewStruct(map[string]interface{}{
-			"stockCount": stockCount.Warehouses[locationIndex].Sku[location.LocationName],
-		  })
-          res, err := grpcClient.UpdateStockcountForWarehouselocation(ctx, &updatestockcountforwarehouselocationpb.StockCountUpdateRequest{
-			WarehouseId: int64(warehouseStructure.ID),
-			WarehouseLocationId: int64(warehouseLocationId),
-			StockCount: stockCountMap,
-		  })
-		  if err != nil {
-			return false, err
-		  }
-		  if !res.Updated {
-			return false, fmt.Errorf("failed to update stock count for warehouse location %d", warehouseLocationId)
-		  } 		
+			fmt.Println("Reached here mother 4", warehouseStructure.ID, warehouseLocationId)
+
+			res, err := grpcClient.UpdateStockcountForWarehouselocation(ctx, &updatestockcountforwarehouselocationpb.StockCountUpdateRequest{
+				WarehouseId: int64(warehouseStructure.ID),
+				WarehouseLocationId: int64(warehouseLocationId),
+				StockCount: map[string]int64{
+					"GKS":     int64(skuForLocation.GKS),
+					"NEO":     int64(skuForLocation.NEO),
+					"PRO":     int64(skuForLocation.PRO),
+					"MM-B":    int64(skuForLocation.MMB),
+					"MM-P":    int64(skuForLocation.MMP),
+					"SWAP":    int64(skuForLocation.SWAP),
+					"M3-MR":   int64(skuForLocation.M3MR),
+					"M3-PB":   int64(skuForLocation.M3PB),
+					"M3-FIFA": int64(skuForLocation.M3FIFA),
+				},
+			})
+			if err != nil {
+				return false, err
+			}
+			if !res.Updated {
+				return false, fmt.Errorf("failed to update stock count for warehouse location %d", warehouseLocationId)
+			}
+			fmt.Println("Reached here mother 5")
+		}
 	}
-}
-    if err := redis.DeleteHash("stockcount", countryIdStr); err != nil {
-    	fmt.Printf("Error %v deleting stockcount for countryId: %s", err, countryIdStr)
-    }
+
+	if err := redis.DeleteHash("stockcount", countryIdStr); err != nil {
+		fmt.Printf("Error %v deleting stockcount for countryId: %s", err, countryIdStr)
+	}
+
+
 	return true, nil
-  }
+}

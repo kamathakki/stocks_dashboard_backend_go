@@ -9,7 +9,6 @@ package updatestockcountforwarehouselocationpb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -26,7 +25,7 @@ type StockCountUpdateRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	WarehouseLocationId int64                  `protobuf:"varint,1,opt,name=warehouseLocationId,proto3" json:"warehouseLocationId,omitempty"`
 	WarehouseId         int64                  `protobuf:"varint,2,opt,name=warehouseId,proto3" json:"warehouseId,omitempty"`
-	StockCount          *structpb.Struct       `protobuf:"bytes,3,opt,name=stockCount,proto3" json:"stockCount,omitempty"`
+	StockCount          map[string]int64       `protobuf:"bytes,3,rep,name=stockCount,proto3" json:"stockCount,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -75,7 +74,7 @@ func (x *StockCountUpdateRequest) GetWarehouseId() int64 {
 	return 0
 }
 
-func (x *StockCountUpdateRequest) GetStockCount() *structpb.Struct {
+func (x *StockCountUpdateRequest) GetStockCount() map[string]int64 {
 	if x != nil {
 		return x.StockCount
 	}
@@ -130,13 +129,16 @@ var File_services_warehouse_proto_updatestockcountforwarehouselocation_proto pro
 
 const file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_rawDesc = "" +
 	"\n" +
-	"Cservices/warehouse/proto/updatestockcountforwarehouselocation.proto\x12\fwarehouse.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa6\x01\n" +
+	"Cservices/warehouse/proto/updatestockcountforwarehouselocation.proto\x12\fwarehouse.v1\"\x83\x02\n" +
 	"\x17StockCountUpdateRequest\x120\n" +
 	"\x13warehouseLocationId\x18\x01 \x01(\x03R\x13warehouseLocationId\x12 \n" +
-	"\vwarehouseId\x18\x02 \x01(\x03R\vwarehouseId\x127\n" +
+	"\vwarehouseId\x18\x02 \x01(\x03R\vwarehouseId\x12U\n" +
 	"\n" +
-	"stockCount\x18\x03 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"stockCount\"4\n" +
+	"stockCount\x18\x03 \x03(\v25.warehouse.v1.StockCountUpdateRequest.StockCountEntryR\n" +
+	"stockCount\x1a=\n" +
+	"\x0fStockCountEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"4\n" +
 	"\x18StockCountUpdateResponse\x12\x18\n" +
 	"\aupdated\x18\x01 \x01(\bR\aupdated2\x82\x01\n" +
 	"\tWarehouse\x12u\n" +
@@ -154,14 +156,14 @@ func file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_ra
 	return file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_rawDescData
 }
 
-var file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_goTypes = []any{
 	(*StockCountUpdateRequest)(nil),  // 0: warehouse.v1.StockCountUpdateRequest
 	(*StockCountUpdateResponse)(nil), // 1: warehouse.v1.StockCountUpdateResponse
-	(*structpb.Struct)(nil),          // 2: google.protobuf.Struct
+	nil,                              // 2: warehouse.v1.StockCountUpdateRequest.StockCountEntry
 }
 var file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_depIdxs = []int32{
-	2, // 0: warehouse.v1.StockCountUpdateRequest.stockCount:type_name -> google.protobuf.Struct
+	2, // 0: warehouse.v1.StockCountUpdateRequest.stockCount:type_name -> warehouse.v1.StockCountUpdateRequest.StockCountEntry
 	0, // 1: warehouse.v1.Warehouse.UpdateStockcountForWarehouselocation:input_type -> warehouse.v1.StockCountUpdateRequest
 	1, // 2: warehouse.v1.Warehouse.UpdateStockcountForWarehouselocation:output_type -> warehouse.v1.StockCountUpdateResponse
 	2, // [2:3] is the sub-list for method output_type
@@ -182,7 +184,7 @@ func file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_in
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_rawDesc), len(file_services_warehouse_proto_updatestockcountforwarehouselocation_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

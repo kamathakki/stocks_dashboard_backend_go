@@ -83,11 +83,21 @@ func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error)
 		loginResponse.Email,
 	}, "A")
 
+	refreshToken, err := helper.CreateToken(struct {
+		ID                           int64
+		UserName, DisplayName, Email string
+	}{
+		loginResponse.ID,
+		loginResponse.UserName,
+		displayName,
+		loginResponse.Email,
+	}, "R")
+
 	if err != nil {
 		return models.LoginResponse{}, err
 	}
 
-	return models.LoginResponse{User: loginResponse, Token: accessToken, IsLoggedIn: true}, nil
+	return models.LoginResponse{User: loginResponse, Token: accessToken, IsLoggedIn: true, RefreshToken: refreshToken}, nil
 
 }
 
