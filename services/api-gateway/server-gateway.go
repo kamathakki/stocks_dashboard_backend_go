@@ -1,23 +1,20 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"stock_automation_backend_go/helper"
+	"stock_automation_backend_go/services/api-gateway/middleware"
+	"stock_automation_backend_go/services/api-gateway/middleware/registrar"
+	"strings"
+
 	"stock_automation_backend_go/services/socketio"
 	"stock_automation_backend_go/shared/env"
-	"strings"
-	"time"
 )
 
 type ResponseStruct struct {
-	StatusCode int    `json:"statusCode"`
-	Message    string `json:"message"`
+	StatusCode int  `json:"statusCode"`
+	Status     bool `json:"status"`
 }
 
 func slash(w http.ResponseWriter, r *http.Request) {
@@ -26,74 +23,107 @@ func slash(w http.ResponseWriter, r *http.Request) {
 }
 
 func health(w http.ResponseWriter, r *http.Request) {
-	res := ResponseStruct{StatusCode: http.StatusOK, Message: "OK"}
-	helper.WriteJson(w, http.StatusOK, res, nil)
-}
 
-type captureResponseWriter struct {
-	http.ResponseWriter
-	buf    *bytes.Buffer
-	status int
-}
-
-func (rw *captureResponseWriter) WriteHeader(code int) {
-	h := rw.ResponseWriter.Header()
-	for _, name := range []string{"Content-Length", "Transfer-Encoding", "Content-Encoding", "Trailer"} {
-		h.Del(name)
+	jsonData, err := json.Marshal(ResponseStruct{StatusCode: http.StatusOK, Status: true})
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
 	}
-	rw.status = code
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
 }
 
-func (rw *captureResponseWriter) Write(data []byte) (int, error) {
-	return rw.buf.Write(data)
-}
+// type captureResponseWriter struct {
+// 	http.ResponseWriter
+// 	buf    *bytes.Buffer
+// 	status int
+// }
 
-func ResponseWrapperProxy(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// func (rw *captureResponseWriter) WriteHeader(code int) {
+// 	h := rw.ResponseWriter.Header()
+// 	for _, name := range []string{"Content-Length", "Transfer-Encoding", "Content-Encoding", "Trailer"} {
+// 		h.Del(name)
+// 	}
+// 	rw.status = code
+// }
 
-		rw := &captureResponseWriter{ResponseWriter: w, buf: &bytes.Buffer{}, status: http.StatusOK}
-		next.ServeHTTP(rw, r)
+// func (rw *captureResponseWriter) Write(data []byte) (int, error) {
+// 	return rw.buf.Write(data)
+// }
 
-		if rw.status >= 400 {
-			// fmt.Printf("Captured body: %q\n", rw.buf.String())
-			helper.WriteJson(w, rw.status, nil, errors.New(rw.buf.String()))
-			return
-		}
+// func ResponseWrapperProxy(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		helper.WriteJson(w, rw.status, json.RawMessage(rw.buf.Bytes()), nil)
-	})
-}
+// 		rw := &captureResponseWriter{ResponseWriter: w, buf: &bytes.Buffer{}, status: http.StatusOK}
+// 		next.ServeHTTP(rw, r)
 
-func newProxy(base string, stripPrefix string) http.Handler {
-	target, _ := url.Parse(base)
-	proxy := httputil.NewSingleHostReverseProxy(target)
+// 		if rw.status >= 400 {
+// 			// fmt.Printf("Captured body: %q\n", rw.buf.String())
+// 			helper.WriteJson(w, rw.status, nil, errors.New(rw.buf.String()))
+// 			return
+// 		}
 
-	proxy.Transport = &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		ResponseHeaderTimeout: 15 * time.Second,
-		IdleConnTimeout:       60 * time.Second,
-	}
+// 		helper.WriteJson(w, rw.status, json.RawMessage(rw.buf.Bytes()), nil)
+// 	})
+// }
 
-	originalDirector := proxy.Director
-
-	proxy.Director = func(r *http.Request) {
-		originalDirector(r)
-
-		r.Host = target.Host
-		r.URL.Scheme = target.Scheme
-		r.URL.Host = target.Host
-		r.Header.Add("fromgateway", "y")
-
-		if stripPrefix != "" && strings.HasPrefix(r.URL.Path, stripPrefix) {
-			r.URL.Path = strings.TrimPrefix(r.URL.Path, stripPrefix)
-			if r.URL.Path == "" {
-				r.URL.Path = "/"
+func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Bypass CORS handling for Socket.IO to avoid interfering with engine.io
+			if strings.HasPrefix(r.URL.Path, "/socket.io/") {
+				next.ServeHTTP(w, r)
+				return
 			}
-		}
-	}
+			if allowedOrigin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			}
 
-	return proxy
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
+
+// func newProxy(base string, stripPrefix string) http.Handler {
+// 	target, _ := url.Parse(base)
+// 	proxy := httputil.NewSingleHostReverseProxy(target)
+
+// 	proxy.Transport = &http.Transport{
+// 		Proxy:                 http.ProxyFromEnvironment,
+// 		ResponseHeaderTimeout: 15 * time.Second,
+// 		IdleConnTimeout:       60 * time.Second,
+// 	}
+
+// 	originalDirector := proxy.Director
+
+// 	proxy.Director = func(r *http.Request) {
+// 		originalDirector(r)
+
+// 		r.Host = target.Host
+// 		r.URL.Scheme = target.Scheme
+// 		r.URL.Host = target.Host
+// 		r.Header.Add("fromgateway", "y")
+
+// 		if stripPrefix != "" && strings.HasPrefix(r.URL.Path, stripPrefix) {
+// 			r.URL.Path = strings.TrimPrefix(r.URL.Path, stripPrefix)
+// 			if r.URL.Path == "" {
+// 				r.URL.Path = "/"
+// 			}
+// 		}
+// 	}
+
+// 	return proxy
+// }
 
 func main() {
 	socketio.RegisterHandlers()
@@ -103,24 +133,76 @@ func main() {
 	mux.HandleFunc("/", slash)
 	mux.HandleFunc("/health", health)
 
+	// Refresh token endpoint mirrors TS verifyRefreshToken
+	mux.HandleFunc("/api/iam/refresh", middleware.VerifyRefreshTokenHandler)
+
 	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.IAM_PORT))
 	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.SKU_PORT))
 	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
 
-	mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
-	mux.Handle("/api/warehouse/", ResponseWrapperProxy(newProxy(wh, "/api/warehouse")))
-	mux.Handle("/api/stockkeepingunit/", ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit")))
+	routes := []registrar.RouteConfig{
+		{
+			Path:          "/api/iam/login",
+			ExactMatch:    true,
+			Target:        iam,
+			Protected:     false,
+			RewritePrefix: "/api/iam",
+			Handler:       registrar.ProxyHandler(iam, "/api/iam"),
+		},
+		{
+			Path:          "/api/iam/register",
+			ExactMatch:    true,
+			Target:        iam,
+			Protected:     false,
+			RewritePrefix: "/api/iam",
+			Handler:       registrar.ProxyHandler(iam, "/api/iam"),
+		},
+		{
+			Path:          "/api/iam",
+			ExactMatch:    false,
+			Target:        iam,
+			Protected:     true,
+			RewritePrefix: "/api/iam",
+			Handler:       registrar.ProxyHandler(iam, "/api/iam"),
+		},
+		{
+			Path:          "/api/warehouse",
+			ExactMatch:    false,
+			Target:        wh,
+			Protected:     true,
+			RewritePrefix: "/api/warehouse",
+			Handler:       registrar.ProxyHandler(wh, "/api/warehouse"),
+		},
+		{
+			Path:          "/api/stockkeepingunit",
+			ExactMatch:    false,
+			Target:        sku,
+			Protected:     true,
+			RewritePrefix: "/api/stockkeepingunit",
+			Handler:       registrar.ProxyHandler(sku, "/api/stockkeepingunit"),
+		},
+	}
+
+	registrar.RegisterGatewayRoutes(mux, middleware.VerifyTokenMiddleware, routes)
+
+	// Protect selected routes with VerifyTokenMiddleware similar to TS verifyToken
+	// mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
+	// mux.Handle("/api/warehouse/", middleware.VerifyTokenMiddleware(ResponseWrapperProxy(newProxy(wh, "/api/warehouse"))))
+	// mux.Handle("/api/stockkeepingunit/", middleware.VerifyTokenMiddleware(ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit"))))
 	mux.Handle("/socket.io/", socketServer)
+
+	// Build allowed origin from env: FRONTEND_PROTOCOL://FRONTEND_CLIENT
+	allowedOrigin := fmt.Sprintf("%s://%s", env.GetEnv[string](env.EnvKeys.FRONTEND_PROTOCOL), env.GetEnv[string](env.EnvKeys.FRONTEND_CLIENT))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.BACKEND_PORT)),
-		Handler: mux,
+		Handler: corsMiddleware(allowedOrigin)(mux),
 	}
 
 	go func() {
-	//defer socketServer.Close()
-	socketServer.Serve()
-	defer socketServer.Close()
+		//defer socketServer.Close()
+		socketServer.Serve()
+		defer socketServer.Close()
 	}()
 	fmt.Println("Socket server connected")
 
@@ -133,7 +215,5 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Printf("HTTP server error %v", err)
 	}
-
-
 
 }
