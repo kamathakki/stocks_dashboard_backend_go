@@ -15,7 +15,6 @@ import (
 	updatestockcountforwarehouselocationpb "warehouse/proto"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -77,7 +76,8 @@ func UpdateStockCountInMemory(w http.ResponseWriter, r *http.Request) (bool, err
   return true, nil
 }
 
-func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, error) {
+func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (any, error) {
+	fmt.Println("Reached here mother")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -94,18 +94,19 @@ func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, er
 
 	var stockCount models.StockCountByWarehouseCountries
 	if err := json.NewDecoder(r.Body).Decode(&stockCount); err != nil {
-	  return false, err
+		return nil, err
 	}
+
 	defer r.Body.Close()
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if(len(parts) < 2) {
-	  return false, fmt.Errorf("country id is required")
+	  return nil, fmt.Errorf("country id is required")
 	}
 	countryIdStr := parts[len(parts)-1]
   
 	warehouseLocationStructure, err := redis.GetHash[[]models.WarehouseStructure]("warehouseLocationsStructure", countryIdStr)
 	if err != nil {
-	  return false, err
+	  return nil, err
 	}
   
 	for _, warehouse := range stockCount.Warehouses {
@@ -126,15 +127,25 @@ func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (bool, er
 			StockCount: stockCountMap,
 		  })
 		  if err != nil {
-			return false, err
+			return nil, err
 		  }
 		  if !res.Updated {
-			return false, fmt.Errorf("failed to update stock count for warehouse location %d", warehouseLocationId)
+			return nil, fmt.Errorf("failed to update stock count for warehouse location %d", warehouseLocationId)
 		  } 		
 	}
 }
     if err := redis.DeleteHash("stockcount", countryIdStr); err != nil {
     	fmt.Printf("Error %v deleting stockcount for countryId: %s", err, countryIdStr)
     }
-	return true, nil
-  }
+
+
+	return struct {
+		StatusCode int `json:"statusCode"`
+		Result     bool `json:"result"`
+		Error      any `json:"error"`
+	}{
+		StatusCode: 200,
+		Result:     true,
+		Error:      nil,
+	}, nil
+}

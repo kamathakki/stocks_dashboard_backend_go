@@ -1,9 +1,11 @@
 package socketio
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/helper"
+	"time"
 
 	socketio "github.com/doquangtan/socketio/v4"
 )
@@ -39,9 +41,15 @@ func init() {
 	server.OnConnection(func(sock *socketio.Socket) {
 		fmt.Println("connected:", sock.Id)
 		_, _, _, _, jobTime := helper.JobTimeEmit()
-		fmt.Println("jobScheduledEvent: ", jobTime)
-		sock.Emit("jobScheduledEvent", jobTime)
-		
+		scheduled := jobTime["scheduledForTime"].Format(time.RFC3339)
+		payload := map[string]string{"scheduledForTime": scheduled}
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			fmt.Println("Error encoding jobScheduledEvent:", err)
+			return
+		}
+		fmt.Println("jobScheduledEvent:", string(jsonPayload))
+		sock.Emit("jobScheduledEvent", string(jsonPayload))
 
 		sock.On("uploadEvent", func(ev *socketio.EventPayload) {
 			var msg string
