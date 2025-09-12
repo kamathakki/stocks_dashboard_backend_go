@@ -22,27 +22,6 @@ var (
 	JOB_TIME_DAY    int64 = env.GetEnv[int64]("JOB_TIME_DAY")
 )
 
-func jobTimeEmit() {
-
-	for helper.IsTimeInPast(JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY) {
-		JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY = helper.JobTimeSetter(JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY)
-	}
-
-	now := time.Now()
-	targetTime := time.Date(
-		now.Year(),
-		now.Month(),
-		now.Day()+int(JOB_TIME_DAY),
-		int(JOB_TIME_HOUR),
-		int(JOB_TIME_MINUTE),
-		int(JOB_TIME_SECOND), 0, now.Location())
-	fmt.Println("Job Time: ", targetTime)
-
-	io := socketio.GetServer()
-	io.BroadcastToNamespace("/", "jobScheduledEvent", map[string]time.Time{"scheduledForTime": targetTime})
-
-}
-
 func RunJob() {
 	getCountriesReq, err := http.NewRequest(http.MethodGet,
 		fmt.Sprintf("/warehouse/getCountries"), nil)
@@ -59,7 +38,7 @@ func RunJob() {
 
 	currSCInCountries := make(map[int]responsemodels.StockCountByWarehouseCountries, len(countries))
 
-	jobTimeEmit()
+	JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY, _ = helper.JobTimeEmit()
 	isJobTime := helper.Job(JOB_TIME_HOUR, JOB_TIME_MINUTE, JOB_TIME_SECOND, JOB_TIME_DAY)
 
 	if isJobTime == true {
@@ -79,8 +58,6 @@ func RunJob() {
 					return
 				}
 
-				io := socketio.GetServer()
-
 				b, _ := json.Marshal(currSCInCountries[country.ID])
 				reqAdd, _ := http.NewRequest(http.MethodPost, "/warehouse/addStockCountHistoryForCountry/"+strconv.Itoa(country.ID), bytes.NewReader(b))
 				reqAdd.Header.Set("Content-Type", "application/json")
@@ -92,7 +69,7 @@ func RunJob() {
 				}
 
 				executionMetaData := map[string]time.Time{"createdAt": responseForCountry["createdAt"]}
-				io.BroadcastToNamespace("/", "jobExecutedEvent-"+strconv.Itoa(country.ID), executionMetaData)
+				socketio.Broadcast("jobExecutedEvent-"+strconv.Itoa(country.ID), executionMetaData)
 
 			}()
 		}

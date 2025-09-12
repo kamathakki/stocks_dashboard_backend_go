@@ -72,7 +72,7 @@ func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Bypass CORS handling for Socket.IO to avoid interfering with engine.io
-			if strings.HasPrefix(r.URL.Path, "/socket.io/") {
+			if r.URL.Path == "/socket.io" || strings.HasPrefix(r.URL.Path, "/socket.io/") {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -126,7 +126,6 @@ func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
 // }
 
 func main() {
-	socketio.RegisterHandlers()
 	socketServer := socketio.GetServer()
 
 	mux := http.NewServeMux()
@@ -139,6 +138,8 @@ func main() {
 	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.IAM_PORT))
 	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.SKU_PORT))
 	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
+
+	mux.Handle("/socket.io/", socketServer)
 
 	routes := []registrar.RouteConfig{
 		{
@@ -189,7 +190,6 @@ func main() {
 	// mux.Handle("/api/iam/", ResponseWrapperProxy(newProxy(iam, "/api/iam")))
 	// mux.Handle("/api/warehouse/", middleware.VerifyTokenMiddleware(ResponseWrapperProxy(newProxy(wh, "/api/warehouse"))))
 	// mux.Handle("/api/stockkeepingunit/", middleware.VerifyTokenMiddleware(ResponseWrapperProxy(newProxy(sku, "/api/stockkeepingunit"))))
-	mux.Handle("/socket.io/", socketServer)
 
 	// Build allowed origin from env: FRONTEND_PROTOCOL://FRONTEND_CLIENT
 	allowedOrigin := fmt.Sprintf("%s://%s", env.GetEnv[string](env.EnvKeys.FRONTEND_PROTOCOL), env.GetEnv[string](env.EnvKeys.FRONTEND_CLIENT))
@@ -200,7 +200,6 @@ func main() {
 	}
 
 	go func() {
-		//defer socketServer.Close()
 		socketServer.Serve()
 		defer socketServer.Close()
 	}()

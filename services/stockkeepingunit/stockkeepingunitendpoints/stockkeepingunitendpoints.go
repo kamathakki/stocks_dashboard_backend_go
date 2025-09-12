@@ -9,6 +9,7 @@ import (
 	"stock_automation_backend_go/database/redis"
 	"stock_automation_backend_go/helper"
 	"stockkeepingunit/types/models"
+	"stockkeepingunit/types/models/responsemodels"
 	"strings"
 	"time"
 	updatestockcountforwarehouselocationpb "warehouse/proto"
@@ -22,7 +23,7 @@ import (
 
 
 
-func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.StockKeepingUnit, error) {
+func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]responsemodels.StockKeepingUnit, error) {
 	DB := database.GetDB()
 	ctx := r.Context()
 
@@ -33,8 +34,8 @@ func GetStockKeepingUnits(w http.ResponseWriter, r *http.Request) ([]models.Stoc
 		return nil, err
 	}
 
-	var SKURow models.StockKeepingUnit
-	var stockKeepingUnitRows []models.StockKeepingUnit
+	var SKURow responsemodels.StockKeepingUnit
+	var stockKeepingUnitRows []responsemodels.StockKeepingUnit
 
 	defer dbResponse.Close()
 
