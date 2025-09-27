@@ -58,7 +58,8 @@ func init() {
 					msg = s
 				}
 			}
-			sock.Emit("uploadEvent", msg)
+			fmt.Println("uploadEvent:", msg)
+			Broadcast("uploadEvent", msg)
 		})
 
 		sock.On("disconnect", func(ev *socketio.EventPayload) {
