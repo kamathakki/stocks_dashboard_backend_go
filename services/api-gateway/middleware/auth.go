@@ -104,8 +104,16 @@ func VerifyRefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	helper.WriteJson(w, http.StatusOK, map[string]any{
-		"token":        newToken,
-		"isTokenValid": true,
-	}, nil)
+	// helper.WriteJson(w, http.StatusOK, map[string]any{
+	// 	"token":        newToken,
+	// 	"isTokenValid": true,
+	// }, nil)
+	jsonData, err := json.Marshal(struct{Token string `json:"token"`; IsTokenValid bool `json:"isTokenValid"`}{Token: newToken, IsTokenValid: true})
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
 }

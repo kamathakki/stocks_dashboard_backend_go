@@ -3,3 +3,4 @@ imp
 *.exe
 **/**/*.exe
 checking.go
+infra/docker/data

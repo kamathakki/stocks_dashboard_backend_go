@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package stockkeepingunit.v1;
+
+option go_package = "stockkeepingunit/proto/addstockcounthistorybycountrypb;addstockcounthistorybycountrypb";
+
+service StockKeepingUnit {
+    rpc AddStockCountHistoryforCountry(StockCountAddRequestByCountry) returns (StockCountAddResponseByCountry);
+}
+
+message Location {
+  int64 location_id = 1;
+  string location_name = 2;
+}
+
+message SkuCounts {
+  int64 gks = 1;
+  int64 neo = 2;
+  int64 pro = 3;
+  int64 mm_b = 4;
+  int64 mm_p = 5;
+  int64 swap = 6;
+  int64 m3_mr = 7;
+  int64 m3_pb = 8;
+  int64 m3_fifa = 9;
+}
+
+message Warehouse {
+  int64 id = 1;
+  string name = 2;
+  map<string, SkuCounts> sku = 3;
+  repeated Location locations = 4;
+}
+
+message StockCountAddRequestByCountry {
+    int64 countryId = 1;
+    string countryName = 2;
+    repeated Warehouse warehouses = 3; 
+}
+
+message StockCountAddResponseByCountry {
+    string createdAt = 1;
+}
+
+
+

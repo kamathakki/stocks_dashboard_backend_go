@@ -2,14 +2,18 @@ package stockkeepingunitendpoints
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"stock_automation_backend_go/database"
 	"stock_automation_backend_go/database/redis"
 	"stock_automation_backend_go/helper"
+	"stockkeepingunit/env"
+	addstockcounthistorybycountrypb "stockkeepingunit/proto"
 	"stockkeepingunit/types/models"
 	"stockkeepingunit/types/models/responsemodels"
+	"strconv"
 	"strings"
 	"time"
 	updatestockcountforwarehouselocationpb "warehouse/proto"
@@ -80,7 +84,7 @@ func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (any, err
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "localhost:7002",
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%v:7002", env.GetEnv[string](env.EnvKeys.WAREHOUSE_HOST)),
      grpc.WithTransportCredentials(insecure.NewCredentials()))
 	 if err != nil {
 		fmt.Println("Error connecting to warehouse gRPC server:", err)
@@ -165,4 +169,90 @@ func UpdateStockCountByCountry(w http.ResponseWriter, r *http.Request) (any, err
 
 
 	return true, nil
+}
+
+func GetStockCountFromHistory(w http.ResponseWriter, r *http.Request) (json.RawMessage, error) {
+	DB := database.GetDB()
+	ctx := r.Context()
+
+	fmt.Println(strings.Trim(r.URL.Path, "/"))
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("countryId and historyDate required")
+	}
+	countryIdStr := parts[len(parts)-2]
+	historyDate := parts[len(parts)-1]
+
+	countryId, err := strconv.Atoi(countryIdStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid country id")
+	}
+
+	const query = `
+	SELECT stock_count FROM stockkeepingunit.stock_count_history
+			 WHERE country_id = $1 AND created_at::date = to_date($2, 'YYYY-MM-DD')
+			 ORDER BY created_at DESC, id DESC LIMIT 1`
+
+	var payload json.RawMessage
+	if err := DB.QueryRowContext(ctx, query, countryId, historyDate).Scan(&payload); err != nil {
+		if err == sql.ErrNoRows {
+			return json.RawMessage([]byte(`{}`)), nil
+		}
+		return nil, err
+	}
+	return payload, nil
+}
+
+func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]time.Time, error) {
+	DB := database.GetDB()
+	ctx := r.Context()
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("country id required")
+	}
+	countryIdStr := parts[len(parts)-1]
+	if _, err := strconv.Atoi(countryIdStr); err != nil {
+		return nil, fmt.Errorf("invalid country id")
+	}
+
+	var body json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+
+	query := `INSERT INTO stockkeepingunit.stock_count_history (stock_count, country_id)
+	          VALUES ($1, $2) RETURNING created_at`
+	var createdAt time.Time
+	if err := DB.QueryRowContext(ctx, query, body, countryIdStr).Scan(&createdAt); err != nil {
+		return nil, err
+	}
+	return map[string]time.Time{"createdAt": createdAt}, nil
+}
+
+type StockKeepingUnitServer struct {
+	addstockcounthistorybycountrypb.UnimplementedStockKeepingUnitServer
+}
+
+func AddStockCountHistoryforCountry(ctx context.Context, req *addstockcounthistorybycountrypb.StockCountAddRequestByCountry) (*addstockcounthistorybycountrypb.StockCountAddResponseByCountry, error) {
+
+    if req.CountryId == 0 || req.CountryName == "" || len(req.Warehouses) == 0 {
+		return nil, fmt.Errorf("country id, country name and warehouses are required")
+	}
+
+	DB := database.GetDB()
+	jsonBytes, err := json.Marshal(req.Warehouses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal warehouses: %w", err)
+	}
+
+	query := `INSERT INTO stockkeepingunit.stock_count_history (stock_count, country_id)
+	          VALUES ($1, $2) RETURNING created_at`
+	var createdAt time.Time
+	if err := DB.QueryRowContext(ctx, query, jsonBytes, req.CountryId).Scan(&createdAt); err != nil {
+		return nil, err
+	}
+
+	return &addstockcounthistorybycountrypb.StockCountAddResponseByCountry{CreatedAt: createdAt.Format(time.RFC3339)}, nil
 }

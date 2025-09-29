@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	models "stock_automation_backend_go/services/api-gateway/api-routes/types"
 	"stock_automation_backend_go/shared/env"
+	models "stock_automation_backend_go/shared/types"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"

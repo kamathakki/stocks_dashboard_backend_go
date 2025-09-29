@@ -1,0 +1,8 @@
+FROM redis:latest
+
+WORKDIR /backend-go
+
+COPY ./infra/docker/data/redis.conf /usr/local/etc/redis/redis.conf
+RUN chmod +x /usr/local/etc/redis/redis.conf
+
+CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]

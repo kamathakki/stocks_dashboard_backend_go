@@ -1,0 +1,28 @@
+FROM golang:1.23-alpine AS builder
+WORKDIR /backend-go
+COPY go.mod go.sum ./
+
+RUN printf "go 1.23.0\n\nuse (\n\t.\n\t./services/stockkeepingunit\n\t./services/warehouse\n)\n" > go.work
+ENV GOWORK=/backend-go/go.work
+
+COPY shared ./shared
+COPY database ./database
+COPY helper ./helper
+COPY services/stockkeepingunit ./services/stockkeepingunit
+COPY services/warehouse ./services/warehouse
+RUN go work sync
+WORKDIR /backend-go/services/stockkeepingunit
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o stockkeepingunit .
+
+#RUNTIME IMAGE
+FROM alpine:latest AS runtime-base
+WORKDIR /app
+COPY --from=builder /backend-go/services/stockkeepingunit/stockkeepingunit /app/services/stockkeepingunit/stockkeepingunit
+
+FROM runtime-base AS runtime-prod
+COPY ../../.env.production /app/.env.production
+COPY services/stockkeepingunit/.env.development /app/services/stockkeepingunit/.env.production
+COPY services/stockkeepingunit/env/secret.json /run/secrets/secret.json
+#ENV ENV_PATH=/app/.env
+EXPOSE 6001
+ENTRYPOINT ["/app/services/stockkeepingunit/stockkeepingunit"]

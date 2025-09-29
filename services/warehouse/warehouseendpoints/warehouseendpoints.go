@@ -2,7 +2,6 @@ package warehouseendpoints
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"stock_automation_backend_go/helper"
 	"strconv"
 	"strings"
-	"time"
 	updatestockcountforwarehouselocationpb "warehouse/proto"
 	"warehouse/types/models"
 	"warehouse/types/responsemodels"
@@ -268,66 +266,6 @@ func GetCountries(w http.ResponseWriter, r *http.Request) ([]Country, error) {
 	}
 
 	return countries, nil
-}
-
-func GetStockCountFromHistory(w http.ResponseWriter, r *http.Request) (json.RawMessage, error) {
-	DB := database.GetDB()
-	ctx := r.Context()
-
-	fmt.Println(strings.Trim(r.URL.Path, "/"))
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 3 {
-		return nil, fmt.Errorf("countryId and historyDate required")
-	}
-	countryIdStr := parts[len(parts)-2]
-	historyDate := parts[len(parts)-1]
-
-	countryId, err := strconv.Atoi(countryIdStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid country id")
-	}
-
-	const query = `
-	SELECT stock_count FROM stockkeepingunit.stock_count_history
-			 WHERE country_id = $1 AND created_at::date = to_date($2, 'YYYY-MM-DD')
-			 ORDER BY created_at DESC, id DESC LIMIT 1`
-
-	var payload json.RawMessage
-	if err := DB.QueryRowContext(ctx, query, countryId, historyDate).Scan(&payload); err != nil {
-		if err == sql.ErrNoRows {
-			return json.RawMessage([]byte(`{}`)), nil
-		}
-		return nil, err
-	}
-	return payload, nil
-}
-
-func AddStockCountHistoryForCountry(w http.ResponseWriter, r *http.Request) (map[string]time.Time, error) {
-	DB := database.GetDB()
-	ctx := r.Context()
-
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("country id required")
-	}
-	countryIdStr := parts[len(parts)-1]
-	if _, err := strconv.Atoi(countryIdStr); err != nil {
-		return nil, fmt.Errorf("invalid country id")
-	}
-
-	var body json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-
-	query := `INSERT INTO stockkeepingunit.stock_count_history (stock_count, country_id)
-	          VALUES ($1, $2) RETURNING created_at`
-	var createdAt time.Time
-	if err := DB.QueryRowContext(ctx, query, body, countryIdStr).Scan(&createdAt); err != nil {
-		return nil, err
-	}
-	return map[string]time.Time{"createdAt": createdAt}, nil
 }
 
 func GetStockCountByWarehouseCountries(w http.ResponseWriter, r *http.Request) ([]map[string]any, error) {
@@ -738,7 +676,6 @@ func (s *WarehouseServer) UpdateStockcountForWarehouselocation(
     req *updatestockcountforwarehouselocationpb.StockCountUpdateRequest,
 ) (*updatestockcountforwarehouselocationpb.StockCountUpdateResponse, error) {
 
-	fmt.Println("Reached here mother 1")
 
     if req.WarehouseLocationId == 0 || req.WarehouseId == 0 {
         return nil, errors.New("WarehouseLocationId and WarehouseId are required")
@@ -748,7 +685,6 @@ func (s *WarehouseServer) UpdateStockcountForWarehouselocation(
         return nil, errors.New("StockCount is required and must contain at least one entry")
     }
 
-	fmt.Println("Reached here mother 2")
 
 
     jsonBytes, err := json.Marshal(req.StockCount) // store map as JSON string in DB

@@ -1,0 +1,35 @@
+# Exclude everything by default
+**
+
+# Allow only what IAM build needs
+!go.mod
+!go.sum
+!go.work
+!go.work.sum
+!services/iam/**
+!services/stockkeepingunit/**
+!services/warehouse/**
+!services/socketio/**
+!services/api-gateway/**
+!shared/**
+!database/**
+!helper/**
+!env/iam/.env.development
+!env/stockkeepingunit/.env.development
+!env/warehouse/.env.development
+
+!.env.development
+!.env.production
+
+# Allow Dockerfiles and build assets
+!infra/docker/**
+
+# Still ignore VCS and temp files in allowed dirs
+**/.git
+**/.gitignore
+**/.DS_Store
+**/node_modules
+**/*.log
+**/tmp
+**/temp
+**/*.swp

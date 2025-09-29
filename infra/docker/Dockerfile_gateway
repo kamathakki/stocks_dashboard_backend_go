@@ -1,0 +1,27 @@
+FROM golang:1.23-alpine AS builder
+WORKDIR /backend-go
+COPY go.mod go.sum ./
+
+RUN printf "go 1.23.0\n\nuse (\n\t.\n)\n" > go.work
+ENV GOWORK=/backend-go/go.work
+COPY shared ./shared
+COPY database ./database
+COPY helper ./helper
+COPY services/socketio ./services/socketio
+COPY services/api-gateway ./services/api-gateway
+
+RUN go work sync
+WORKDIR /backend-go/services/api-gateway
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o api-gateway .
+
+FROM alpine:latest AS runtime-base
+WORKDIR /app
+COPY --from=builder /backend-go/services/api-gateway/api-gateway /app/services/api-gateway/api-gateway
+
+FROM runtime-base AS runtime-prod
+COPY ../../.env.production /app/.env.production
+COPY shared/env/secret.json /run/secrets/secret.json
+#COPY services/api-gateway/.env.development /app/services/api-gateway/.env.production
+#ENV ENV_PATH=/app/.env
+EXPOSE 8081
+ENTRYPOINT ["/app/services/api-gateway/api-gateway"]

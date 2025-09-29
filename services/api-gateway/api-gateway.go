@@ -135,9 +135,9 @@ func main() {
 	// Refresh token endpoint mirrors TS verifyRefreshToken
 	mux.HandleFunc("/api/iam/refresh", middleware.VerifyRefreshTokenHandler)
 
-	iam := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.IAM_PORT))
-	sku := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.SKU_PORT))
-	wh := fmt.Sprintf("http://localhost:%s", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
+	iam := fmt.Sprintf("http://%s:%s", env.GetEnv[string](env.EnvKeys.IAM_HOST), env.GetEnv[string](env.EnvKeys.IAM_PORT))
+	sku := fmt.Sprintf("http://%s:%s", env.GetEnv[string](env.EnvKeys.SKU_HOST), env.GetEnv[string](env.EnvKeys.SKU_PORT))
+	wh := fmt.Sprintf("http://%s:%s", env.GetEnv[string](env.EnvKeys.WAREHOUSE_HOST), env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
 
 	mux.Handle("/socket.io/", socketServer)
 

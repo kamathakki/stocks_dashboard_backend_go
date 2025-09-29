@@ -1,0 +1,27 @@
+FROM golang:1.23-alpine AS builder
+WORKDIR /backend-go
+COPY go.mod go.sum ./
+# Create a minimal workspace including only the root module and IAM
+RUN printf "go 1.23.0\n\nuse (\n\t.\n\t./services/iam\n)\n" > go.work
+ENV GOWORK=/backend-go/go.work
+COPY shared ./shared
+COPY database ./database
+COPY helper ./helper
+COPY services/iam ./services/iam
+RUN go work sync
+WORKDIR /backend-go/services/iam
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o iam .
+
+FROM alpine:3.20 AS runtime-base
+WORKDIR /app
+COPY --from=builder /backend-go/services/iam/iam /app/services/iam/iam
+
+
+# Production/runtime with env from services/iam/.env.development
+FROM runtime-base AS runtime-prod
+COPY ../../.env.production /app/.env.production
+COPY services/iam/.env.development /app/services/iam/.env.production
+COPY services/iam/env/secret.json /run/secrets/secret.json
+#ENV ENV_PATH=/app/.env
+EXPOSE 6000
+ENTRYPOINT ["/app/services/iam/iam"]
