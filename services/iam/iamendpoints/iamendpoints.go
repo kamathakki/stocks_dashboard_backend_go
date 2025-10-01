@@ -97,18 +97,6 @@ func Login(w http.ResponseWriter, r *http.Request) (models.LoginResponse, error)
 		return models.LoginResponse{}, err
 	}
 
-	// Set refresh token cookie like Express example
-	http.SetCookie(w, &http.Cookie{
-		Name:     "jwt",
-		Value:    "Bearer " + refreshToken,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
-		Expires:  time.Now().Add(7 * 24 * time.Hour),
-		// MaxAge alternatively: 7 * 24 * 60 * 60,
-	})
-
 
 	return models.LoginResponse{User: loginResponse, Token: accessToken, IsLoggedIn: true, RefreshToken: refreshToken}, nil
 

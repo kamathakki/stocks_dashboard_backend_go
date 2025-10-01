@@ -1,0 +1,394 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: miko-stock-automation-backend-iam
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-iam
+  template:
+    metadata:
+      labels:
+        app: backend-iam
+    spec:
+      containers:
+      - name: backend-iam
+        image: kamathakshaymiko/miko-stock-automation-backend-iam
+        ports:
+        - containerPort: 6000
+        env:
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: IAM_PORT
+          value: "6000"
+        - name: SECRET_KEY
+          value: "SECRET_KEY"
+        - name: SECRET_PATH
+          value: "/run/secrets/secret.json"
+        - name: REFRESH_SECRET_KEY
+          value: "REFRESH_SECRET_KEY"
+        - name: API_KEY
+          value: "API_KEY"
+        - name: PG_USER
+          value: "PG_USER"
+        - name: PG_PASSWORD
+          value: "PG_PASSWORD"
+        - name: SCHEMA_NAME
+          value: "iam"
+        - name: ENV
+          value: "production"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-backend-iam-service
+spec: 
+  type:LoadBalancer
+  selector: 
+    app: backend-iam  
+  ports: 
+    - port: 6000
+      targetPort: 6000
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: miko-stock-automation-backend-stockkeepingunit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-stockkeepingunit
+  template:
+    metadata:
+      labels:
+        app: backend-stockkeepingunit
+    spec:
+      containers:
+      - name: backend-stockkeepingunit
+        image: kamathakshaymiko/miko-stock-automation-backend-stockkeepingunit
+        ports:
+        - containerPort: 6001
+        env:
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: SKU_PORT
+          value: "6001"
+        - name: SECRET_KEY
+          value: "SECRET_KEY"
+        - name: SECRET_PATH
+          value: "/run/secrets/secret.json"
+        - name: REFRESH_SECRET_KEY
+          value: "REFRESH_SECRET_KEY"
+        - name: API_KEY
+          value: "API_KEY"
+        - name: PG_USER
+          value: "PG_USER"
+        - name: PG_PASSWORD
+          value: "PG_PASSWORD"
+        - name: SCHEMA_NAME
+          value: "stockkeepingunit"
+        - name: ENV
+          value: "production"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-backend-stockkeepingunit-service
+spec: 
+  type:LoadBalancer
+  selector: 
+    app: backend-stockkeepingunit  
+  ports: 
+    - port: 6001
+      targetPort: 6001
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: miko-stock-automation-backend-warehouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-warehouse
+  template:
+    metadata:
+      labels:
+        app: backend-warehouse
+    spec:
+      containers:
+      - name: backend-warehouse
+        image: kamathakshaymiko/miko-stock-automation-backend-warehouse
+        ports:
+        - containerPort: 6002
+        env:
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: WAREHOUSE_PORT
+          value: "6002"
+        - name: SECRET_KEY
+          value: "SECRET_KEY"
+        - name: SECRET_PATH
+          value: "/run/secrets/secret.json"
+        - name: REFRESH_SECRET_KEY
+          value: "REFRESH_SECRET_KEY"
+        - name: API_KEY
+          value: "API_KEY"
+        - name: PG_USER
+          value: "PG_USER"
+        - name: PG_PASSWORD
+          value: "PG_PASSWORD"
+        - name: SCHEMA_NAME
+          value: "warehouse"
+        - name: ENV
+          value: "production"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-backend-warehouse-service
+spec: 
+  type:LoadBalancer
+  selector: 
+    app: backend-warehouse  
+  ports: 
+    - port: 6002
+      targetPort: 6002
+      protocol: TCP
+---            
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miko-stock-automation-backend-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-gateway
+  template:
+    metadata:
+      labels:
+        app: backend-gateway
+    spec:
+      containers:
+      - name: backend-gateway
+        image: kamathakshaymiko/miko-stock-automation-backend-gateway
+        ports:
+        - containerPort: 8081
+        env:
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: PORT
+          value: "8081"
+        - name: SECRET_KEY
+          value: "SECRET_KEY"
+        - name: IAM_HOST  
+          value: "miko-stock-automation-backend-iam"
+        - name: SKU_HOST
+          value: "miko-stock-automation-backend-stockkeepingunit"
+        - name: WAREHOUSE_HOST
+          value: "miko-stock-automation-backend-warehouse"
+        - name: IAM_PORT
+          value: "6000"
+        - name: SKU_PORT
+          value: "6001"
+        - name: WAREHOUSE_PORT
+          value: "6002"
+        - name: PG_HOST
+          value: "miko-stock-automation-postgres"
+        - name: REDIS_HOST
+          value: "miko-stock-automation-redis"
+        - name: PROTOCOL
+          value: "http"
+        - name: SECRET_PATH
+          value: "/run/secrets/secret.json"
+        - name: REFRESH_SECRET_KEY
+          value: "REFRESH_SECRET_KEY"
+        - name: API_KEY
+          value: "API_KEY"
+        - name: PG_USER
+          value: "PG_USER"
+        - name: PG_PASSWORD
+          value: "PG_PASSWORD"
+        - name: REDIS_USER
+          value: "REDIS_USER"
+        - name: REDIS_PASSWORD
+          value: "REDIS_PASSWORD"
+        - name: DB_NAME
+          value: "DB_NAME"
+        - name: FRONTEND_PROTOCOL
+          value: "http"
+        - name: FRONTEND_CLIENT
+          value: "localhost"
+        - name: FRONTEND_PORT
+          value: "80"
+        - name: DB_PORT
+          value: "5432"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: JOB_TIME_HOUR
+          value: "12"
+        - name: JOB_TIME_MINUTE
+          value: "0"
+        - name: JOB_TIME_SECOND
+          value: "0"
+        - name: JOB_TIME_HOUR_FREQUENCY
+          value: "24"
+        - name: JOB_TIME_MINUTE_FREQUENCY
+          value: "0"
+        - name: JOB_TIME_SECOND_FREQUENCY
+          value: "0"
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-backend
+spec:
+  type: LoadBalancer
+  selector:
+    app: backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+---      
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes: 
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miko-stock-automation-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: kamathakshaymiko/miko-stock-automation-postgres
+        ports:
+        - containerPort: 5432
+        env:
+          - name: POSTGRES_USER
+            value: "DB_USER"
+          - name: POSTGRES_PASSWORD
+            value: "DB_PASSWORD"
+          - name: TZ
+            value: "Asia/Kolkata"
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "0.5"
+        volumeMounts:
+          -  name: postgres-storage
+             mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: miko-stock-automation-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: kamathakshaymiko/miko-stock-automation-redis
+        ports:
+        - containerPort: 6379
+        env:
+          - name: TZ
+            value: Asia/Kolkata
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "0.5"
+        volumeMounts:
+          - name: redis-storage
+            mountPath: /data
+      volumes:
+        - name: redis-storage
+          persistentVolumeClaim:
+            claimName: redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: miko-stock-automation-redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
