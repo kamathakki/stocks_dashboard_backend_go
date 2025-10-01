@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend-iam
-        image: kamathakshaymiko/miko-stock-automation-backend-iam
+        image: kamathakki/miko-stock-automation-backend-iam
         ports:
         - containerPort: 6000
         env:
@@ -47,9 +47,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: miko-stock-automation-backend-iam-service
+  name: miko-stock-automation-backend-iam
 spec: 
-  type:LoadBalancer
+  type: LoadBalancer
   selector: 
     app: backend-iam  
   ports: 
@@ -73,7 +73,7 @@ spec:
     spec:
       containers:
       - name: backend-stockkeepingunit
-        image: kamathakshaymiko/miko-stock-automation-backend-stockkeepingunit
+        image: kamathakki/miko-stock-automation-backend-stockkeepingunit
         ports:
         - containerPort: 6001
         env:
@@ -105,9 +105,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: miko-stock-automation-backend-stockkeepingunit-service
+  name: miko-stock-automation-backend-stockkeepingunit
 spec: 
-  type:LoadBalancer
+  type: LoadBalancer
   selector: 
     app: backend-stockkeepingunit  
   ports: 
@@ -131,7 +131,7 @@ spec:
     spec:
       containers:
       - name: backend-warehouse
-        image: kamathakshaymiko/miko-stock-automation-backend-warehouse
+        image: kamathakki/miko-stock-automation-backend-warehouse
         ports:
         - containerPort: 6002
         env:
@@ -163,9 +163,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: miko-stock-automation-backend-warehouse-service
+  name: miko-stock-automation-backend-warehouse
 spec: 
-  type:LoadBalancer
+  type: LoadBalancer
   selector: 
     app: backend-warehouse  
   ports: 
@@ -189,7 +189,7 @@ spec:
     spec:
       containers:
       - name: backend-gateway
-        image: kamathakshaymiko/miko-stock-automation-backend-gateway
+        image: kamathakki/miko-stock-automation-backend-gateway
         ports:
         - containerPort: 8081
         env:
@@ -263,14 +263,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: miko-stock-automation-backend
+  name: miko-stock-automation-backend-gateway
 spec:
   type: LoadBalancer
   selector:
-    app: backend
+    app: backend-gateway
   ports:
-    - port: 3000
-      targetPort: 3000
+    - port: 8081
+      targetPort: 8081
       protocol: TCP
 ---      
 apiVersion: v1
@@ -300,7 +300,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: kamathakshaymiko/miko-stock-automation-postgres
+        image: kamathakki/miko-stock-automation-postgres
         ports:
         - containerPort: 5432
         env:
@@ -362,7 +362,7 @@ spec:
     spec:
       containers:
       - name: redis
-        image: kamathakshaymiko/miko-stock-automation-redis
+        image: kamathakki/miko-stock-automation-redis
         ports:
         - containerPort: 6379
         env:
