@@ -195,7 +195,7 @@ spec:
         env:
         - name: TZ
           value: "Asia/Kolkata"
-        - name: PORT
+        - name: BACKEND_PORT
           value: "8081"
         - name: SECRET_KEY
           value: "SECRET_KEY"
@@ -243,6 +243,8 @@ spec:
           value: "5432"
         - name: REDIS_PORT
           value: "6379"
+        - name: JOB_TIME_DAY
+          value: "0"  
         - name: JOB_TIME_HOUR
           value: "12"
         - name: JOB_TIME_MINUTE
@@ -255,6 +257,10 @@ spec:
           value: "0"
         - name: JOB_TIME_SECOND_FREQUENCY
           value: "0"
+        - name: JOB_TIME_DAY_FREQUENCY
+          value: "0"
+        - name: ENV
+          value: "production"
         resources:
           limits:
             memory: "2Gi"
