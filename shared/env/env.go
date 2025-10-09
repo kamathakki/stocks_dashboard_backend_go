@@ -58,10 +58,10 @@ func init() {
             log.Printf("warning: failed to load env file %s: %v", envPath, err)
         }
     // Load secrets file from shared/env by default (overridable via SECRET_PATH)
-    secretPath := os.Getenv("SECRET_PATH")
+    var secretPath string = ""
     if secretPath == "" {
         if ENV == "production" {
-            secretPath = "/app/shared/env/secret.json"
+            secretPath = "/run/secrets/secret.json"
         } else {
             secretPath = "shared/env/secret.json"
         }

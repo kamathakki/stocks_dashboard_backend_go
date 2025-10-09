@@ -39,10 +39,10 @@ func init() {
             log.Printf("warning: failed to load env file %s: %v", envPath, err)
         }
     // Load secrets file from services/iam/env by default (overridable via SECRET_PATH)
-    secretPath := os.Getenv("SECRET_PATH")
+    secretPath := ""
     if secretPath == "" {
         if ENV == "production" {
-            secretPath = "/app/services/iam/env/secret.json"
+            secretPath = "/run/secrets/secret.json"
         } else {
             secretPath = "services/iam/env/secret.json"
         }

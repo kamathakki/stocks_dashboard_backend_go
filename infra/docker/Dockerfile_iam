@@ -22,6 +22,5 @@ FROM runtime-base AS runtime-prod
 COPY ../../.env.production /app/.env.production
 COPY services/iam/.env.development /app/services/iam/.env.production
 COPY services/iam/env/secret.json /run/secrets/secret.json
-#ENV ENV_PATH=/app/.env
 EXPOSE 6000
 ENTRYPOINT ["/app/services/iam/iam"]

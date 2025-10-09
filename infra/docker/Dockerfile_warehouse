@@ -24,8 +24,7 @@ COPY --from=builder /backend-go/services/warehouse/warehouse /app/services/wareh
 
 FROM runtime-base AS runtime-prod
 COPY ../../.env.production /app/.env.production
-COPY services/warehouse/.env.development /app/services/warehouse/.env.production
+COPY services/warehouse/.env.production /app/services/warehouse/.env.production
 COPY services/warehouse/env/secret.json /run/secrets/secret.json
-#ENV ENV_PATH=/app/.env
 EXPOSE 6002
 ENTRYPOINT ["/app/services/warehouse/warehouse"]

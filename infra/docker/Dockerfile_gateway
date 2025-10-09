@@ -19,9 +19,8 @@ WORKDIR /app
 COPY --from=builder /backend-go/services/api-gateway/api-gateway /app/services/api-gateway/api-gateway
 
 FROM runtime-base AS runtime-prod
-COPY ../../.env.production /app/.env.production
+COPY .env.production /app/.env.production
 COPY shared/env/secret.json /run/secrets/secret.json
 #COPY services/api-gateway/.env.development /app/services/api-gateway/.env.production
-#ENV ENV_PATH=/app/.env
 EXPOSE 8081
 ENTRYPOINT ["/app/services/api-gateway/api-gateway"]

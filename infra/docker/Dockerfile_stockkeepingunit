@@ -21,8 +21,7 @@ COPY --from=builder /backend-go/services/stockkeepingunit/stockkeepingunit /app/
 
 FROM runtime-base AS runtime-prod
 COPY ../../.env.production /app/.env.production
-COPY services/stockkeepingunit/.env.development /app/services/stockkeepingunit/.env.production
+COPY services/stockkeepingunit/.env.production /app/services/stockkeepingunit/.env.production
 COPY services/stockkeepingunit/env/secret.json /run/secrets/secret.json
-#ENV ENV_PATH=/app/.env
 EXPOSE 6001
 ENTRYPOINT ["/app/services/stockkeepingunit/stockkeepingunit"]

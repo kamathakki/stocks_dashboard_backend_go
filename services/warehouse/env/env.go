@@ -37,10 +37,10 @@ func init() {
         }
 
     // Load secrets file from services/warehouse/env by default (overridable via SECRET_PATH)
-    secretPath := os.Getenv("SECRET_PATH")
+    secretPath := ""
     if secretPath == "" {
         if ENV == "production" {
-            secretPath = "/app/services/warehouse/env/secret.json"
+            secretPath = "/run/secrets/secret.json"
         } else {
             secretPath = "services/warehouse/env/secret.json"
         }
