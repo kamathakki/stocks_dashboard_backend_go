@@ -32,9 +32,13 @@ func init() {
 	var rootDIR string = "."
 	if ENV == "production" {
 		rootDIR = "/app/services/iam"
-	}
+	} else if ENV == "development" {
+		rootDIR = "services/iam"
+	} else {
+        log.Fatalf("ENV is not set")
+    }
     envPath := rootDIR + "/.env." + ENV
-	fmt.Println("envPath", envPath)
+	fmt.Println("envPiuth", envPath)
         if err := godotenv.Load(envPath); err != nil {
             log.Printf("warning: failed to load env file %s: %v", envPath, err)
         }
@@ -43,8 +47,10 @@ func init() {
     if secretPath == "" {
         if ENV == "production" {
             secretPath = "/run/secrets/secret.json"
-        } else {
+        } else if ENV == "development" {
             secretPath = "services/iam/env/secret.json"
+        } else {
+            log.Fatalf("ENV is not set")
         }
     }
     loadSecrets(secretPath)

@@ -53,7 +53,7 @@ func init() {
 		rootDIR = "/app"
 	}
 	envPath := rootDIR + "/.env." + ENV
-	fmt.Println("envPath", envPath)
+	fmt.Println("envPeth", envPath)
         if err := godotenv.Load(envPath); err != nil {
             log.Printf("warning: failed to load env file %s: %v", envPath, err)
         }

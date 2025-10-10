@@ -27,10 +27,14 @@ var EnvKeys = struct {
 
 func init() {
 	ENV := os.Getenv("ENV")
-    var rootDIR string = "services/stockkeepingunit"
+    var rootDIR string = ""
 	if ENV == "production" {
 		rootDIR = "/app/services/stockkeepingunit"
-	} 
+	} else if ENV == "development" {
+		rootDIR = "services/stockkeepingunit"
+	} else {
+        log.Fatalf("ENV is not set")
+    }
 	envPath := rootDIR + "/.env." + ENV
 	fmt.Println("envPath", envPath)
         if err := godotenv.Load(envPath); err != nil {
@@ -42,7 +46,7 @@ func init() {
     if secretPath == "" {
         if ENV == "production" {
             secretPath = "/run/secrets/secret.json"
-        } else {
+        } else if ENV == "development" {
             secretPath = "services/stockkeepingunit/env/secret.json"
         }
     }
