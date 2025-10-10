@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"stockkeepingunit/env"
 	"stockkeepingunit/routes"
 
-	"github.com/soheilhy/cmux"
+	_ "github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
 
@@ -40,30 +41,31 @@ func main() {
         fmt.Printf("SKU HTTP running on %v, gRPC running on %s. \n", httpPort, grpcPort)
         select {}
     } else {
-        listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string]((env.EnvKeys.SKU_PORT))))
-        if err != nil {
-            fmt.Printf("Error listening to port %v", err)
-            return
-        }
-        m := cmux.New(listener)
+        log.Fatal("SKU_GRPC_PORT is not set")
+        // listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string]((env.EnvKeys.SKU_PORT))))
+        // if err != nil {
+        //     fmt.Printf("Error listening to port %v", err)
+        //     return
+        // }
+        // m := cmux.New(listener)
 
-        grpcL := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+        // grpcL := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
         
-        grpcServer := grpc.NewServer()
+        // grpcServer := grpc.NewServer()
 
-        httpL := m.Match(cmux.HTTP1Fast())
+        // httpL := m.Match(cmux.HTTP1Fast())
 
-        server := &http.Server{
-            Handler: mux,
-        }
+        // server := &http.Server{
+        //     Handler: mux,
+        // }
 
-        go func() { grpcServer.Serve(grpcL) }()
-        go func() { server.Serve(httpL) }()
+        // go func() { grpcServer.Serve(grpcL) }()
+        // go func() { server.Serve(httpL) }()
 
-        fmt.Printf("SKU server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.SKU_PORT))
+        // fmt.Printf("SKU server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.SKU_PORT))
 
-        if err := m.Serve(); err != nil {
-            fmt.Printf("HTTP server error %v", err)
-        }
+        // if err := m.Serve(); err != nil {
+        //     fmt.Printf("HTTP server error %v", err)
+        // }
     }
 }

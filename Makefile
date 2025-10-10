@@ -1,6 +1,23 @@
 login:
 	docker login -u kamathakki
 
+cleanup:
+	- docker rmi miko-stock-automation-redis:latest
+	- docker rmi miko-stock-automation-postgres:latest
+	- docker rmi miko-stock-automation-backend-iam:latest
+	- docker rmi miko-stock-automation-backend-stockkeepingunit:latest
+	- docker rmi miko-stock-automation-backend-warehouse:latest
+	- docker rmi miko-stock-automation-backend-gateway:latest
+	- docker rmi kamathakki/miko-stock-automation-redis:latest
+	- docker rmi kamathakki/miko-stock-automation-postgres:latest
+	- docker rmi kamathakki/miko-stock-automation-backend-iam:latest
+	- docker rmi kamathakki/miko-stock-automation-backend-stockkeepingunit:latest
+	- docker rmi kamathakki/miko-stock-automation-backend-warehouse:latest
+	- docker rmi kamathakki/miko-stock-automation-backend-gateway:latest
+	kubectl delete deployments --all
+	kubectl delete services --all
+	kubectl delete pvc --all
+
 push-redis:
 	docker build -f ./infra/docker/Dockerfile_redis -t miko-stock-automation-redis .
 	docker tag miko-stock-automation-redis:latest kamathakki/miko-stock-automation-redis:latest
@@ -31,10 +48,15 @@ push-backend-gateway:
 	docker tag miko-stock-automation-backend-gateway:latest kamathakki/miko-stock-automation-backend-gateway:latest
 	docker push kamathakki/miko-stock-automation-backend-gateway:latest
 
+start-all:
+	kubectl apply -f .\k8s-deployment.yml
+
 push-all:
+	make cleanup
 	make push-redis
 	make push-postgres
 	make push-backend-iam
 	make push-backend-stockkeepingunit
 	make push-backend-warehouse
 	make push-backend-gateway
+	make start-all

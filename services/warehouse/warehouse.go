@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"warehouse/routes"
 	"warehouse/warehouseendpoints"
 
-	"github.com/soheilhy/cmux"
+	_ "github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
 
@@ -43,37 +44,38 @@ func main() {
         fmt.Printf("Warehouse HTTP running on %v, gRPC running on %s. \n", httpPort, grpcPort)
         select {}
     } else {
-        listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)))
-        if err != nil {
-            fmt.Printf("Error listening to port %v", err)
-            return
-        }
+        log.Fatal("WAREHOUSE_GRPC_PORT is not set")
+        // listener, err := net.Listen("tcp", fmt.Sprintf(":%v", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT)))
+        // if err != nil {
+        //     fmt.Printf("Error listening to port %v", err)
+        //     return
+        // }
 
-        m := cmux.New(listener)
+        // m := cmux.New(listener)
 
-        grpcL := m.MatchWithWriters(
-            cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"),
-        )
-        grpcServer := grpc.NewServer()
+        // grpcL := m.MatchWithWriters(
+        //     cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"),
+        // )
+        // grpcServer := grpc.NewServer()
 
-        updatestockcountforwarehouselocationpb.RegisterWarehouseServer(grpcServer, &warehouseendpoints.WarehouseServer{})
+        // updatestockcountforwarehouselocationpb.RegisterWarehouseServer(grpcServer, &warehouseendpoints.WarehouseServer{})
 
-        httpL := m.Match(cmux.Any())
+        // httpL := m.Match(cmux.Any())
         
-        routes.RegisterRoutes(mux)
+        // routes.RegisterRoutes(mux)
 
-        server := &http.Server{
-            Handler: mux,
-        }
+        // server := &http.Server{
+        //     Handler: mux,
+        // }
 
-        go stockCountJob.RunJob()
-        go func() { grpcServer.Serve(grpcL) }()
-        go func() { server.Serve(httpL) }()
-        fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
+        // go stockCountJob.RunJob()
+        // go func() { grpcServer.Serve(grpcL) }()
+        // go func() { server.Serve(httpL) }()
+        // fmt.Printf("Warehouse server and GRPC server is running on port %v. \n", env.GetEnv[string](env.EnvKeys.WAREHOUSE_PORT))
 
-        if err := m.Serve(); err != nil {
-            fmt.Printf("Error in configuration %v", err)
-        }
+        // if err := m.Serve(); err != nil {
+        //     fmt.Printf("Error in configuration %v", err)
+        // }
     }
 	
 }
